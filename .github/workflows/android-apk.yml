@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Export Android APK
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout project
@@ -25,30 +26,63 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2"
+          yes | sdkmanager --licenses
 
-      - name: Build Android APK
-        id: export
-        uses: firebelley/godot-export@v8.0.0
-        with:
-          godot_executable_download_url: https://github.com/godotengine/godot-builds/releases/download/3.6.3-stable/Godot_v3.6.3-stable_linux_headless.64.zip
-          godot_export_templates_download_url: https://github.com/godotengine/godot-builds/releases/download/3.6.3-stable/Godot_v3.6.3-stable_export_templates.tpz
-          relative_project_path: ./
-          use_godot_3: true
-          presets_to_export: Android
-          archive_output: false
-          verbose: true
+      - name: Download Godot 3.6.3
+        run: |
+          mkdir -p "$RUNNER_TEMP/godot"
+          wget -nv \
+            "https://github.com/godotengine/godot-builds/releases/download/3.6.3-stable/Godot_v3.6.3-stable_linux_headless.64.zip" \
+            -O "$RUNNER_TEMP/godot/godot.zip"
+          unzip -o "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT_BIN="$(find "$RUNNER_TEMP/godot" -type f -name 'Godot_v3.6.3-stable_linux_headless.64' -print -quit)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Download Android export templates
+        run: |
+          wget -nv \
+            "https://github.com/godotengine/godot-builds/releases/download/3.6.3-stable/Godot_v3.6.3-stable_export_templates.tpz" \
+            -O "$RUNNER_TEMP/export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/templates/3.6.3.stable"
+          unzip -o "$RUNNER_TEMP/export_templates.tpz" -d "$RUNNER_TEMP/export_templates"
+          TEMPLATE_DIR="$(find "$RUNNER_TEMP/export_templates" -type d -name '3.6.3.stable' -print -quit)"
+          if [ -z "$TEMPLATE_DIR" ]; then
+            TEMPLATE_DIR="$(find "$RUNNER_TEMP/export_templates" -type d -name '3.6.3.stable' -print -quit)"
+          fi
+          if [ -z "$TEMPLATE_DIR" ]; then
+            echo "Could not find the 3.6.3.stable export templates directory."
+            find "$RUNNER_TEMP/export_templates" -maxdepth 3 -type f
+            exit 1
+          fi
+          cp -a "$TEMPLATE_DIR/." "$HOME/.local/share/godot/templates/3.6.3.stable/"
+
+      - name: Validate project and Android preset
+        run: |
+          test -f project.godot || { echo "project.godot not found in repository root"; exit 1; }
+          test -f export_presets.cfg || { echo "export_presets.cfg not found in repository root"; exit 1; }
+          grep -q 'name="Android"' export_presets.cfg || { echo "Android preset not found"; exit 1; }
+          grep -q 'platform="Android"' export_presets.cfg || { echo "Preset platform is not Android"; exit 1; }
+          "$GODOT_BIN" --version
+          "$GODOT_BIN" --path "$GITHUB_WORKSPACE" --export "Android" "$RUNNER_TEMP/ZekaCity.apk"
+
+      - name: Verify APK
+        run: |
+          test -s "$RUNNER_TEMP/ZekaCity.apk" || { echo "APK was not generated"; exit 1; }
+          ls -lh "$RUNNER_TEMP/ZekaCity.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ZekaCity-Android-APK
-          path: '**/*.apk'
+          path: ${{ runner.temp }}/ZekaCity.apk
           if-no-files-found: error
