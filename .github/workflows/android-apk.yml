@@ -1,0 +1,30 @@
+name: Build ZekaCity Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Build Android APK
+        uses: firebelley/godot-export@v6
+        with:
+          godot_version: 3.6
+          export_preset: Android
+          project_path: .
+          archive_output: false
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZekaCity-Android-APK
+          path: ./**/*.apk
+          if-no-files-found: error
