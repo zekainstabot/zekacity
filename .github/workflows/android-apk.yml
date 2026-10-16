@@ -15,6 +15,9 @@ jobs:
     name: Export Android APK
     runs-on: ubuntu-22.04
 
+    env:
+      GODOT_SILENCE_ROOT_WARNING: "1"
+
     steps:
       - name: Checkout project
         uses: actions/checkout@v4
@@ -23,18 +26,22 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
+        shell: bash
         run: |
+          set -euo pipefail
+
+          yes | sdkmanager --licenses
+
           sdkmanager --install \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2"
-          yes | sdkmanager --licenses
 
       - name: Download Godot 3.6.3
         shell: bash
@@ -52,11 +59,11 @@ jobs:
 
           GODOT_BIN="$(find "$RUNNER_TEMP/godot" \
             -type f \
-            -name 'Godot_v3.6.3-stable_linux_headless.64' \
+            -name "Godot_v3.6.3-stable_linux_headless.64" \
             -print -quit)"
 
           if [ -z "$GODOT_BIN" ]; then
-            echo "Godot executable was not found."
+            echo "ERROR: Godot executable was not found."
             find "$RUNNER_TEMP/godot" -maxdepth 3 -type f
             exit 1
           fi
@@ -83,19 +90,21 @@ jobs:
           unzip -o "$RUNNER_TEMP/export_templates.tpz" \
             -d "$EXTRACT_DIR"
 
-          if [ ! -s "$EXTRACT_DIR/templates/android_debug.apk" ] || \
-             [ ! -s "$EXTRACT_DIR/templates/android_release.apk" ]; then
-            echo "Android export templates are missing from the archive."
+          SOURCE_TEMPLATES="$EXTRACT_DIR/templates"
+
+          if [ ! -s "$SOURCE_TEMPLATES/android_debug.apk" ] || \
+             [ ! -s "$SOURCE_TEMPLATES/android_release.apk" ]; then
+            echo "ERROR: Android templates are missing."
             find "$EXTRACT_DIR" -maxdepth 3 -type f
             exit 1
           fi
 
-          cp -a "$EXTRACT_DIR/templates/." "$TEMPLATE_ROOT/"
+          cp -a "$SOURCE_TEMPLATES/." "$TEMPLATE_ROOT/"
 
           test -s "$TEMPLATE_ROOT/android_debug.apk"
           test -s "$TEMPLATE_ROOT/android_release.apk"
 
-          echo "Android export templates installed successfully."
+          echo "Android templates installed."
 
       - name: Validate project and Android preset
         shell: bash
@@ -103,24 +112,24 @@ jobs:
           set -euo pipefail
 
           test -f project.godot || {
-            echo "project.godot not found in repository root."
+            echo "ERROR: project.godot not found in repository root."
             exit 1
           }
 
           test -f export_presets.cfg || {
-            echo "export_presets.cfg not found in repository root."
+            echo "ERROR: export_presets.cfg not found in repository root."
             exit 1
           }
 
-          if ! grep -Eq '^[[:space:]]*name="Android"[[:space:]]*$' export_presets.cfg; then
-            echo "Android export preset was not found."
+          grep -Eq '^[[:space:]]*name="Android"[[:space:]]*$' export_presets.cfg || {
+            echo "ERROR: Android preset was not found."
             exit 1
-          fi
+          }
 
-          if ! grep -Eq '^[[:space:]]*platform="Android"[[:space:]]*$' export_presets.cfg; then
-            echo "The Android preset platform is missing."
+          grep -Eq '^[[:space:]]*platform="Android"[[:space:]]*$' export_presets.cfg || {
+            echo "ERROR: Android platform setting was not found."
             exit 1
-          fi
+          }
 
           echo "Project and Android preset checks passed."
 
@@ -132,7 +141,8 @@ jobs:
           "$GODOT_BIN" \
             --path "$GITHUB_WORKSPACE" \
             --editor \
-            --import
+            --quit \
+            2>&1 | tee "$RUNNER_TEMP/godot-import.log"
 
       - name: Export Android APK
         shell: bash
@@ -143,13 +153,17 @@ jobs:
 
           "$GODOT_BIN" \
             --path "$GITHUB_WORKSPACE" \
-            --export-debug "Android" "$OUTPUT_APK"
+            --export-debug "Android" "$OUTPUT_APK" \
+            2>&1 | tee "$RUNNER_TEMP/godot-export.log"
 
           if [ ! -s "$OUTPUT_APK" ]; then
-            echo "APK export failed: output file is missing or empty."
+            echo "ERROR: APK export did not create a non-empty file."
+            echo "Export log:"
+            cat "$RUNNER_TEMP/godot-export.log"
             exit 1
           fi
 
+          echo "APK created successfully:"
           ls -lh "$OUTPUT_APK"
 
       - name: Upload APK
