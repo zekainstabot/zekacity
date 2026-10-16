@@ -12,9 +12,15 @@ var grid_size = 25
 
 var selected_x = 0
 var selected_y = 0
+var road_placement_direction = -1
+var selected_building_for_placement = ""
 
 var placed_buildings = []
 var building_system = null
+
+var construction_menu_controller = preload(
+	"res://scripts/buildings/ConstructionMenuController.gd"
+).new()
 
 var building_action_panel = null
 
@@ -34,9 +40,6 @@ var building_hit_tester = preload(
 
 var selected_building_index = -1
 var submenu_menu = null
-
-var next_building_menu_id = 1
-var menu_building_ids = {}
 
 var residential_buildings = preload(
 	"res://scripts/buildings/ResidentialBuildings.gd"
@@ -110,6 +113,7 @@ var land_purchase_dialog = null
 var pending_land_grid = Vector2(0, 0)
 
 
+var buy_land_button = null
 
 var building_names = {
 	"small_house": "Small House",
@@ -141,70 +145,6 @@ var building_names = {
 }
 
 
-var category_buildings = {
-	100: {
-		"name": "Houses",
-		"items": [
-			"small_house",
-			"normal_house",
-			"low_apartment",
-			"high_apartment",
-			"residential_tower"
-		]
-	},
-	102: {
-		"name": "Parks",
-		"items": [
-			"small_park",
-			"playground",
-			"sports_center",
-			"cultural_center"
-		]
-	},
-	103: {
-		"name": "Education",
-		"items": [
-			"school",
-			"university"
-		]
-	},
-	104: {
-		"name": "Healthcare",
-		"items": [
-			"clinic",
-			"hospital"
-		]
-	},
-	105: {
-		"name": "Businesses",
-		"items": [
-			"grocery_store",
-			"bakery",
-			"restaurant",
-			"office",
-			"shopping_mall",
-			"factory"
-		]
-	},
-	106: {
-		"name": "Utilities",
-		"items": [
-			"water_tower",
-			"power_station",
-			"sewage_plant",
-			"waste_facility"
-		]
-	},
-	107: {
-		"name": "Public Services",
-		"items": [
-			"city_hall",
-			"police_station",
-			"fire_station"
-		]
-	}
-}
-
 
 # =========================================
 # INITIALIZATION
@@ -215,12 +155,36 @@ func _ready():
 	
 	var ui = get_node_or_null("../UI")
 
+	
 	if ui != null:
 		treasury_label = Label.new()
 		treasury_label.name = "TreasuryLabel"
-		treasury_label.rect_position = Vector2(20, 60)
+		treasury_label.anchor_left = 1.0
+		treasury_label.anchor_right = 1.0
+		treasury_label.margin_left = -250
+		treasury_label.margin_right = -20
+		treasury_label.margin_top = 15
+		treasury_label.margin_bottom = 45
+		treasury_label.align = Label.ALIGN_RIGHT
 		ui.add_child(treasury_label)
 		_update_treasury_label()
+
+		buy_land_button = Button.new()
+		buy_land_button.name = "BuyLandButton"
+		buy_land_button.text = "Buy Land"
+		buy_land_button.visible = false
+		buy_land_button.anchor_left = 1.0
+		buy_land_button.anchor_right = 1.0
+		buy_land_button.margin_left = -180
+		buy_land_button.margin_right = -20
+		buy_land_button.margin_top = 50
+		buy_land_button.margin_bottom = 90
+		ui.add_child(buy_land_button)
+		buy_land_button.connect(
+			"pressed",
+			self,
+			"_buy_selected_land"
+		)
 	else:
 		push_error("UI node NOT FOUND")
 
@@ -245,11 +209,10 @@ func _ready():
 	submenu_menu.set_as_toplevel(true)
 	add_child(submenu_menu)
 
-	submenu_menu.connect(
-		"id_pressed",
-		self,
-		"_on_SubmenuMenu_id_pressed"
-	)
+	construction_menu_controller.initialize(
+	self,
+	submenu_menu
+)
 
 	building_system = get_node_or_null("../BuildingSystem")
 
@@ -485,104 +448,15 @@ func _draw_building(building_id, grid_pos, center):
 # =========================================
 
 func _on_BuildHouseButton_pressed():
-	print("BUILD BUTTON PRESSED")
-
-	var menu = get_node_or_null("../UI/ConstructionMenu")
-
-	if menu == null:
-		push_error("ConstructionMenu NOT FOUND")
-		return
-
-	menu.clear()
-	menu.add_item("Houses", 100)
-	menu.add_item("Roads", 101)
-	menu.add_item("Parks and Recreation", 102)
-	menu.add_item("Education", 103)
-	menu.add_item("Healthcare", 104)
-	menu.add_item("Businesses", 105)
-	menu.add_item("Utilities", 106)
-	menu.add_item("Public Services", 107)
-	menu.add_item("Buy Selected Land", 108)
-
-	menu.rect_size = Vector2(220, 300)
-	menu.popup()
-
-
-
+	construction_menu_controller.on_build_button_pressed()
 
 func _on_ConstructionMenu_id_pressed(id):
-	print("CATEGORY SELECTED: ", id)
-
-	if id == 108:
-		_buy_selected_land()
-		return
-
-	if submenu_menu == null:
-		push_error("BuildingSubmenu NOT FOUND")
-		return
-
-	submenu_menu.clear()
-	menu_building_ids.clear()
-	next_building_menu_id = 1
-
-	if id == 101:
-		submenu_menu.add_item("Road A", 201)
-		submenu_menu.add_item("Road B", 202)
-		submenu_menu.rect_position = get_global_mouse_position()
-		submenu_menu.popup()
-		return
-
-	if not category_buildings.has(id):
-		push_error("UNKNOWN CATEGORY ID: " + str(id))
-		return
-
-	var items = category_buildings[id]["items"]
-
-	for current_building_id in items:
-		var menu_id = next_building_menu_id
-		next_building_menu_id += 1
-
-		menu_building_ids[menu_id] = current_building_id
-
-		var display_name = building_names.get(
-			current_building_id,
-			current_building_id.replace("_", " ").capitalize()
-		)
-
-		submenu_menu.add_item(display_name, menu_id)
-
-	print("SUBMENU ITEMS: ", items)
-
-	submenu_menu.rect_position = get_global_mouse_position()
-	submenu_menu.popup()
-
-
-func _on_SubmenuMenu_id_pressed(id):
-	print("SUBMENU ITEM SELECTED: ", id)
-
-	if id == 201:
-		_place_road(0)
-		return
-
-	if id == 202:
-		_place_road(1)
-		return
-
-	if not menu_building_ids.has(id):
-		push_error("UNKNOWN SUBMENU ID: " + str(id))
-		return
-
-	var selected_building_id = menu_building_ids[id]
-
-	print("SELECTED BUILDING: ", selected_building_id)
-
-	_place_building(selected_building_id)
+	construction_menu_controller.on_category_selected(id)
 
 
 # =========================================
 # PLACING BUILDINGS
 # =========================================
-
 
 func _place_building(building_id):
 	var grid_pos = Vector2(selected_x, selected_y)
@@ -610,7 +484,7 @@ func _place_building(building_id):
 		)
 
 		print("BUILDING PLACEMENT FAILED: ", error_code)
-		return
+		return false
 
 	placed_buildings.append({
 		"grid": grid_pos,
@@ -620,15 +494,36 @@ func _place_building(building_id):
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
 
+	selected_building_for_placement = ""
+	road_placement_direction = -1
+
 	_refresh_building_visuals()
 	update()
 
+	print("BUILDING PLACED SUCCESSFULLY: ", building_id, " | ", grid_pos)
+	return true
 
 # =========================================
 # PLACING ROADS
 # =========================================
 
 func _place_road(direction):
+	if direction != 0 and direction != 1:
+		push_error("Invalid road direction: " + str(direction))
+		return
+
+	road_placement_direction = direction
+
+	if direction == 0:
+		print("ROAD A SELECTED: Click a tile to place the road.")
+	else:
+		print("ROAD B SELECTED: Click a tile to place the road.")
+
+
+func _confirm_place_road():
+	if road_placement_direction < 0:
+		return
+
 	var road_system = get_node_or_null("../RoadSystem")
 
 	if road_system == null:
@@ -641,10 +536,14 @@ func _place_road(direction):
 		print("Cannot build a road on a building tile: ", grid_pos)
 		return
 
-	var added = road_system.add_road(grid_pos, direction)
+	var added = road_system.add_road(
+		grid_pos,
+		road_placement_direction
+	)
 
 	if added:
-		print("ROAD ADDED: ", grid_pos)
+		print("ROAD PLACED SUCCESSFULLY: ", grid_pos)
+		road_placement_direction = -1
 
 func _find_building_at_position(mouse_pos):
 	return building_hit_tester.find_building_at_position(
@@ -659,7 +558,7 @@ func _find_building_at_position(mouse_pos):
 # TILE SELECTION
 # =========================================
 
-func _input(event):
+func _unhandled_input(event):
 	if building_interaction_controller != null:
 		building_interaction_controller.handle_input(
 			event,
@@ -747,6 +646,8 @@ func _confirm_land_purchase():
 			result["balance"]
 		)
 		_update_treasury_label()
+	if buy_land_button != null:
+		buy_land_button.visible = false
 		update()
 	else:
 		print("LAND PURCHASE FAILED: ", result["error"])
@@ -818,6 +719,7 @@ func _on_BuildingActionMenu_id_pressed(id):
 			building_action_menu.hide()
 
 
+
 func _confirm_building_demolition():
 	if pending_demolition_index < 0:
 		return
@@ -840,8 +742,12 @@ func _confirm_building_demolition():
 	selected_building_index = -1
 	pending_demolition_index = -1
 	moving_building_index = -1
+	moving_building_origin = Vector2(-1, -1)
 
 	building_visibility.clear_selection()
+
+	if building_action_panel != null:
+		building_action_panel.hide_panel()
 
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)

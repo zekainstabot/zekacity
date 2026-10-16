@@ -1,15 +1,17 @@
+
 extends Reference
 
 # ZekaCity - BuildingInteractionController.gd
 # Godot 3.6
-# مدیریت مستقل انتخاب ساختمان و ورودی‌های مربوط به آن
-
 
 func handle_input(event, world):
 	if not event is InputEventMouseButton:
 		return
 
-	if event.button_index != BUTTON_LEFT or not event.pressed:
+	if event.button_index != BUTTON_LEFT:
+		return
+
+	if not event.pressed:
 		return
 
 	var mouse_pos = world.get_local_mouse_position()
@@ -18,9 +20,20 @@ func handle_input(event, world):
 		_handle_building_move(mouse_pos, world)
 		return
 
+	if world.road_placement_direction >= 0:
+		_handle_road_placement(mouse_pos, world)
+		return
+
+	if world.selected_building_for_placement != "":
+		_handle_building_placement(mouse_pos, world)
+		return
+
 	var hit_building = world._find_building_at_position(mouse_pos)
 
 	if hit_building >= 0:
+		if world.buy_land_button != null:
+			world.buy_land_button.visible = false
+
 		_select_building(hit_building, world)
 		return
 
@@ -143,11 +156,9 @@ func _select_land(mouse_pos, world):
 
 	for i in range(world.placed_buildings.size() - 1, -1, -1):
 		var building = world.placed_buildings[i]
-
 		var footprint = world.building_footprints.get_footprint(
 			building["id"]
 		)
-
 		var origin = building["grid"]
 
 		if (
@@ -157,7 +168,6 @@ func _select_land(mouse_pos, world):
 			and clicked_grid.y < origin.y + footprint.y
 		):
 			world.selected_building_index = i
-
 			world.building_visibility.set_selected_building(i)
 			break
 
@@ -166,6 +176,11 @@ func _select_land(mouse_pos, world):
 
 		if world.building_action_panel != null:
 			world.building_action_panel.hide_panel()
+
+		if world.buy_land_button != null:
+			world.buy_land_button.visible = not world.land_system.is_owned(
+				clicked_grid
+			)
 	else:
 		if world.building_action_panel != null:
 			world.building_action_panel.show_for_building(
@@ -176,5 +191,50 @@ func _select_land(mouse_pos, world):
 				)
 			)
 
+		if world.buy_land_button != null:
+			world.buy_land_button.visible = false
+
 	world._refresh_building_visuals()
 	world.update()
+
+
+func _handle_road_placement(mouse_pos, world):
+	var center = Vector2(600, 130)
+
+	var selected_tile = world.land_selection.get_selected_tile(
+		mouse_pos,
+		center,
+		world.grid_size,
+		world.tile_width,
+		world.tile_height
+	)
+
+	if selected_tile.x < 0:
+		return
+
+	world.selected_x = int(selected_tile.x)
+	world.selected_y = int(selected_tile.y)
+
+	world._confirm_place_road()
+
+
+func _handle_building_placement(mouse_pos, world):
+	var center = Vector2(600, 130)
+
+	var selected_tile = world.land_selection.get_selected_tile(
+		mouse_pos,
+		center,
+		world.grid_size,
+		world.tile_width,
+		world.tile_height
+	)
+
+	if selected_tile.x < 0:
+		return
+
+	world.selected_x = int(selected_tile.x)
+	world.selected_y = int(selected_tile.y)
+
+	world._place_building(
+		world.selected_building_for_placement
+	)
