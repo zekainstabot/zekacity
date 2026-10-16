@@ -36,12 +36,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          sdkmanager --licenses </dev/null
-
           sdkmanager --install \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2"
+
+          sdkmanager --licenses </dev/null
 
       - name: Download Godot 3.6.3
         shell: bash
@@ -136,29 +136,51 @@ jobs:
       - name: Import Godot project
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
 
+          IMPORT_LOG="$RUNNER_TEMP/godot-import.log"
+
+          set +e
           "$GODOT_BIN" \
             --path "$GITHUB_WORKSPACE" \
             --editor \
             --quit \
-            2>&1 | tee "$RUNNER_TEMP/godot-import.log"
+            > "$IMPORT_LOG" 2>&1
+          IMPORT_STATUS=$?
+          set -e
+
+          cat "$IMPORT_LOG"
+
+          if [ "$IMPORT_STATUS" -ne 0 ]; then
+            echo "ERROR: Godot import exited with code $IMPORT_STATUS."
+            exit "$IMPORT_STATUS"
+          fi
 
       - name: Export Android APK
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
 
           OUTPUT_APK="$RUNNER_TEMP/ZekaCity.apk"
+          EXPORT_LOG="$RUNNER_TEMP/godot-export.log"
 
+          set +e
           "$GODOT_BIN" \
             --path "$GITHUB_WORKSPACE" \
-            --export-debug "Android" "$OUTPUT_APK" \
-            2>&1 | tee "$RUNNER_TEMP/godot-export.log"
+            --export "Android" "$OUTPUT_APK" \
+            > "$EXPORT_LOG" 2>&1
+          EXPORT_STATUS=$?
+          set -e
+
+          cat "$EXPORT_LOG"
+
+          if [ "$EXPORT_STATUS" -ne 0 ]; then
+            echo "ERROR: Godot export exited with code $EXPORT_STATUS."
+            exit "$EXPORT_STATUS"
+          fi
 
           if [ ! -s "$OUTPUT_APK" ]; then
             echo "ERROR: APK export did not create a non-empty file."
-            cat "$RUNNER_TEMP/godot-export.log"
             exit 1
           fi
 
