@@ -35,19 +35,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           sdkmanager --install \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2"
-
           sdkmanager --licenses </dev/null
 
       - name: Download Godot 3.6.3
         shell: bash
         run: |
           set -euo pipefail
-
           mkdir -p "$RUNNER_TEMP/godot"
 
           wget -nv \
@@ -64,13 +61,11 @@ jobs:
 
           if [ -z "$GODOT_BIN" ]; then
             echo "ERROR: Godot executable was not found."
-            find "$RUNNER_TEMP/godot" -maxdepth 3 -type f
             exit 1
           fi
 
           chmod +x "$GODOT_BIN"
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
-
           "$GODOT_BIN" --version
 
       - name: Install Android export templates
@@ -92,44 +87,94 @@ jobs:
 
           SOURCE_TEMPLATES="$EXTRACT_DIR/templates"
 
-          if [ ! -s "$SOURCE_TEMPLATES/android_debug.apk" ] || \
-             [ ! -s "$SOURCE_TEMPLATES/android_release.apk" ]; then
-            echo "ERROR: Android export templates are missing."
-            find "$EXTRACT_DIR" -maxdepth 3 -type f
-            exit 1
-          fi
+          test -s "$SOURCE_TEMPLATES/android_debug.apk"
+          test -s "$SOURCE_TEMPLATES/android_release.apk"
 
           cp -a "$SOURCE_TEMPLATES/." "$TEMPLATE_ROOT/"
 
           test -s "$TEMPLATE_ROOT/android_debug.apk"
           test -s "$TEMPLATE_ROOT/android_release.apk"
 
-          echo "Android export templates installed."
+      - name: Configure Android signing
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          KEYSTORE="$RUNNER_TEMP/zeka-debug.keystore"
+
+          keytool -genkeypair -v \
+            -keystore "$KEYSTORE" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          export KEYSTORE
+
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("export_presets.cfg")
+          content = path.read_text(encoding="utf-8")
+
+          start = content.find("[preset.0.options]")
+          if start == -1:
+              raise SystemExit(
+                  "ERROR: Android preset options were not found."
+              )
+
+          end = content.find("\n[preset.", start + 1)
+          if end == -1:
+              end = len(content)
+
+          section = content[start:end]
+
+          values = {
+              "keystore/debug": os.environ["KEYSTORE"],
+              "keystore/debug_user": "androiddebugkey",
+              "keystore/debug_password": "android",
+              "keystore/release": os.environ["KEYSTORE"],
+              "keystore/release_user": "androiddebugkey",
+              "keystore/release_password": "android",
+          }
+
+          for key, value in values.items():
+              pattern = re.compile(
+                  r'(?m)^' + re.escape(key) + r'="[^"]*"'
+              )
+              escaped_value = value.replace("\\", "\\\\")
+              replacement = key + '="' + escaped_value + '"'
+
+              if pattern.search(section):
+                  section = pattern.sub(
+                      lambda _: replacement,
+                      section,
+                      count=1,
+                  )
+              else:
+                  section += "\n" + replacement
+
+          content = content[:start] + section + content[end:]
+          path.write_text(content, encoding="utf-8")
+
+          print("Android signing configured.")
+          PY
 
       - name: Validate project and Android preset
         shell: bash
         run: |
           set -euo pipefail
 
-          test -f project.godot || {
-            echo "ERROR: project.godot not found in repository root."
-            exit 1
-          }
+          test -f project.godot
+          test -f export_presets.cfg
 
-          test -f export_presets.cfg || {
-            echo "ERROR: export_presets.cfg not found in repository root."
-            exit 1
-          }
-
-          grep -Eq '^[[:space:]]*name="Android"[[:space:]]*$' export_presets.cfg || {
-            echo "ERROR: Android preset was not found."
-            exit 1
-          }
-
-          grep -Eq '^[[:space:]]*platform="Android"[[:space:]]*$' export_presets.cfg || {
-            echo "ERROR: Android platform setting was not found."
-            exit 1
-          }
+          grep -Eq '^[[:space:]]*name="Android"[[:space:]]*$' export_presets.cfg
+          grep -Eq '^[[:space:]]*platform="Android"[[:space:]]*$' export_presets.cfg
 
           echo "Project and Android preset checks passed."
 
@@ -146,14 +191,14 @@ jobs:
             --editor \
             --quit \
             > "$IMPORT_LOG" 2>&1
-          IMPORT_STATUS=$?
+          STATUS=$?
           set -e
 
           cat "$IMPORT_LOG"
 
-          if [ "$IMPORT_STATUS" -ne 0 ]; then
-            echo "ERROR: Godot import exited with code $IMPORT_STATUS."
-            exit "$IMPORT_STATUS"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: Godot import exited with code $STATUS."
+            exit "$STATUS"
           fi
 
       - name: Export Android APK
@@ -169,14 +214,14 @@ jobs:
             --path "$GITHUB_WORKSPACE" \
             --export "Android" "$OUTPUT_APK" \
             > "$EXPORT_LOG" 2>&1
-          EXPORT_STATUS=$?
+          STATUS=$?
           set -e
 
           cat "$EXPORT_LOG"
 
-          if [ "$EXPORT_STATUS" -ne 0 ]; then
-            echo "ERROR: Godot export exited with code $EXPORT_STATUS."
-            exit "$EXPORT_STATUS"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: Godot export exited with code $STATUS."
+            exit "$STATUS"
           fi
 
           if [ ! -s "$OUTPUT_APK" ]; then
@@ -184,7 +229,6 @@ jobs:
             exit 1
           fi
 
-          echo "APK created successfully:"
           ls -lh "$OUTPUT_APK"
 
       - name: Upload APK
