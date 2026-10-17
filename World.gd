@@ -1,4 +1,3 @@
-
 extends Node2D
 
 # =========================================
@@ -18,12 +17,19 @@ var selected_building_for_placement = ""
 var placed_buildings = []
 var building_system = null
 
+var storage_system = preload(
+	"res://scripts/resources/StorageSystem.gd"
+).new()
+
+var resource_manager = preload(
+	"res://scripts/resources/ResourceManager.gd"
+).new()
+
 var construction_menu_controller = preload(
 	"res://scripts/buildings/ConstructionMenuController.gd"
 ).new()
 
 var building_action_panel = null
-
 var building_visuals_root = null
 
 var building_visibility = preload(
@@ -47,6 +53,10 @@ var residential_buildings = preload(
 
 var commercial_buildings = preload(
 	"res://scripts/buildings/CommercialBuildings.gd"
+).new()
+
+var warehouse_buildings = preload(
+	"res://scripts/buildings/WarehouseBuildings.gd"
 ).new()
 
 var public_buildings = preload(
@@ -107,11 +117,9 @@ var land_purchase = preload(
 	"res://scripts/land/LandPurchase.gd"
 ).new()
 
-
 var treasury_label = null
 var land_purchase_dialog = null
 var pending_land_grid = Vector2(0, 0)
-
 
 var buy_land_button = null
 
@@ -141,9 +149,12 @@ var building_names = {
 	"playground": "Playground",
 	"sports_center": "Sports Center",
 	"university": "University",
-	"cultural_center": "Cultural Center"
+	"cultural_center": "Cultural Center",
+	"small_warehouse": "Small Warehouse",
+	"medium_warehouse": "Medium Warehouse",
+	"large_warehouse": "Large Warehouse",
+	"huge_warehouse": "Huge Warehouse"
 }
-
 
 
 # =========================================
@@ -152,10 +163,9 @@ var building_names = {
 
 func _ready():
 	print("CITY TREASURY INITIALIZED: ", city_treasury.get_balance())
-	
+
 	var ui = get_node_or_null("../UI")
 
-	
 	if ui != null:
 		treasury_label = Label.new()
 		treasury_label.name = "TreasuryLabel"
@@ -198,11 +208,26 @@ func _ready():
 	)
 
 	land_system.initialize(grid_size)
+
 	if placed_buildings.empty():
 		placed_buildings.append({
 			"grid": Vector2(0, 0),
 			"id": "small_house"
 		})
+
+	resource_manager.set_storage_system(storage_system)
+	storage_system.sync_warehouses(placed_buildings)
+
+	var mountain_system = get_node_or_null("../MountainSystem")
+
+	if mountain_system == null:
+		push_error("MountainSystem node NOT FOUND")
+	else:
+		mountain_system.initialize(
+			self,
+			city_treasury,
+			ui
+		)
 
 	submenu_menu = PopupMenu.new()
 	submenu_menu.name = "BuildingSubmenu"
@@ -210,9 +235,9 @@ func _ready():
 	add_child(submenu_menu)
 
 	construction_menu_controller.initialize(
-	self,
-	submenu_menu
-)
+		self,
+		submenu_menu
+	)
 
 	building_system = get_node_or_null("../BuildingSystem")
 
@@ -223,12 +248,13 @@ func _ready():
 		building_system.tile_height = tile_height
 		building_system.set_buildings(placed_buildings)
 		_refresh_building_visuals()
-		
+
 	building_visuals_root = Node2D.new()
 	building_visuals_root.name = "BuildingVisuals"
 	add_child(building_visuals_root)
 
 	_refresh_building_visuals()
+
 	building_action_panel = preload(
 		"res://scripts/buildings/BuildingActionPanel.gd"
 	).new()
@@ -251,7 +277,9 @@ func _ready():
 		self,
 		"_confirm_building_demolition"
 	)
+
 	update()
+
 
 # =========================================
 # ISOMETRIC GRID
@@ -338,6 +366,7 @@ func _refresh_building_visuals():
 			alpha
 		)
 
+
 # =========================================
 # BUILDING DRAW DISPATCHER
 # =========================================
@@ -381,15 +410,20 @@ func _draw_building(building_id, grid_pos, center):
 		)
 		return
 
-	if building_id == "school":
-		education_buildings.draw_building(
+	if building_id in [
+		"small_warehouse",
+		"medium_warehouse",
+		"large_warehouse",
+		"huge_warehouse"
+	]:
+		warehouse_buildings.draw_building(
 			self,
 			building_id,
 			pos
 		)
 		return
 
-	if building_id == "university":
+	if building_id in ["school", "university"]:
 		education_buildings.draw_building(
 			self,
 			building_id,
@@ -441,6 +475,7 @@ func _draw_building(building_id, grid_pos, center):
 			building_id,
 			pos
 		)
+		return
 
 
 # =========================================
@@ -449,6 +484,7 @@ func _draw_building(building_id, grid_pos, center):
 
 func _on_BuildHouseButton_pressed():
 	construction_menu_controller.on_build_button_pressed()
+
 
 func _on_ConstructionMenu_id_pressed(id):
 	construction_menu_controller.on_category_selected(id)
@@ -486,6 +522,34 @@ func _place_building(building_id):
 		print("BUILDING PLACEMENT FAILED: ", error_code)
 		return false
 
+	var StorageDefinitions = load(
+		"res://scripts/resources/StorageDefinitions.gd"
+	)
+
+	var building_cost = 0
+
+	# Only warehouses have a cost defined in StorageDefinitions.
+	if StorageDefinitions.has_warehouse(building_id):
+		building_cost = StorageDefinitions.get_cost(building_id)
+
+		if building_cost < 0:
+			print("BUILDING PLACEMENT FAILED: INVALID_WAREHOUSE")
+			return false
+
+		if not city_treasury.can_afford(building_cost):
+			print(
+				"NOT ENOUGH MONEY. Cost: $",
+				building_cost,
+				" | Balance: $",
+				city_treasury.get_balance()
+			)
+			return false
+
+		if not city_treasury.spend(building_cost):
+			print("BUILDING PLACEMENT FAILED: PAYMENT_FAILED")
+			return false
+
+	# IMPORTANT: Add every building, not just warehouses.
 	placed_buildings.append({
 		"grid": grid_pos,
 		"id": building_id
@@ -494,14 +558,27 @@ func _place_building(building_id):
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
 
+	# Refresh shared storage capacity after building placement.
+	storage_system.sync_warehouses(placed_buildings)
+
 	selected_building_for_placement = ""
 	road_placement_direction = -1
 
 	_refresh_building_visuals()
+	_update_treasury_label()
 	update()
 
-	print("BUILDING PLACED SUCCESSFULLY: ", building_id, " | ", grid_pos)
+	print(
+		"BUILDING PLACED SUCCESSFULLY: ",
+		building_id,
+		" | ",
+		grid_pos,
+		" | Cost: $",
+		building_cost
+	)
+
 	return true
+
 
 # =========================================
 # PLACING ROADS
@@ -545,6 +622,7 @@ func _confirm_place_road():
 		print("ROAD PLACED SUCCESSFULLY: ", grid_pos)
 		road_placement_direction = -1
 
+
 func _find_building_at_position(mouse_pos):
 	return building_hit_tester.find_building_at_position(
 		mouse_pos,
@@ -554,6 +632,8 @@ func _find_building_at_position(mouse_pos):
 		tile_height,
 		Vector2(600, 130)
 	)
+
+
 # =========================================
 # TILE SELECTION
 # =========================================
@@ -564,6 +644,11 @@ func _unhandled_input(event):
 			event,
 			self
 		)
+
+
+# =========================================
+# LAND PURCHASE
+# =========================================
 
 func _buy_selected_land():
 	var grid_pos = Vector2(selected_x, selected_y)
@@ -604,7 +689,7 @@ func _buy_selected_land():
 		print(
 			"NOT ENOUGH MONEY. Price: ",
 			total_price,
-			" | Balance: ",
+			" | Balance: $",
 			city_treasury.get_balance()
 		)
 		return
@@ -640,12 +725,13 @@ func _confirm_land_purchase():
 		print(
 			"LAND PURCHASED. Tiles: ",
 			result["tiles_bought"],
-			" | Price: $",
+			" | Price: ",
 			result["price"],
 			" | Remaining: $",
 			result["balance"]
 		)
 		_update_treasury_label()
+
 	if buy_land_button != null:
 		buy_land_button.visible = false
 		update()
@@ -659,7 +745,9 @@ func _update_treasury_label():
 			"Municipal Treasury: $"
 			+ str(city_treasury.get_balance())
 		)
-		# =========================================
+
+
+# =========================================
 # BUILDING ACTIONS
 # =========================================
 
@@ -716,9 +804,13 @@ func _on_BuildingActionMenu_id_pressed(id):
 			building_action_dialog.popup_centered()
 
 		4:
-			building_action_menu.hide()
+			if building_action_menu != null:
+				building_action_menu.hide()
 
 
+# =========================================
+# BUILDING DEMOLITION
+# =========================================
 
 func _confirm_building_demolition():
 	if pending_demolition_index < 0:
@@ -751,6 +843,9 @@ func _confirm_building_demolition():
 
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
+
+	# Keep shared warehouse capacity synchronized after demolition.
+	storage_system.sync_warehouses(placed_buildings)
 
 	_refresh_building_visuals()
 	update()

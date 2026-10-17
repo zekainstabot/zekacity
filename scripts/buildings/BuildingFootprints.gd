@@ -32,6 +32,11 @@ var footprints = {
 	"police_station": Vector2(2, 2),
 	"fire_station": Vector2(2, 2),
 	"city_hall": Vector2(3, 3),
+	
+	"small_warehouse": Vector2(2, 2),
+	"medium_warehouse": Vector2(3, 2),
+	"large_warehouse": Vector2(3, 3),
+	"huge_warehouse": Vector2(4, 3),
 
 	"small_park": Vector2(2, 2),
 	"playground": Vector2(2, 2),

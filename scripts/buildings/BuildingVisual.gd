@@ -1,3 +1,4 @@
+
 extends Node2D
 
 # =========================================
@@ -74,6 +75,14 @@ func _get_drawer(id):
 		"factory"
 	]:
 		return world.commercial_buildings
+
+	if id in [
+		"small_warehouse",
+		"medium_warehouse",
+		"large_warehouse",
+		"huge_warehouse"
+	]:
+		return world.warehouse_buildings
 
 	if id in ["school", "university"]:
 		return world.education_buildings

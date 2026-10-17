@@ -1,5 +1,7 @@
-
 extends Reference
+
+# ZekaCity - ConstructionMenuController.gd
+# Godot 3.6
 
 var world = null
 var submenu_menu = null
@@ -28,11 +30,17 @@ var category_buildings = {
 	},
 	103: {
 		"name": "Education",
-		"items": ["school", "university"]
+		"items": [
+			"school",
+			"university"
+		]
 	},
 	104: {
 		"name": "Healthcare",
-		"items": ["clinic", "hospital"]
+		"items": [
+			"clinic",
+			"hospital"
+		]
 	},
 	105: {
 		"name": "Businesses",
@@ -61,6 +69,15 @@ var category_buildings = {
 			"police_station",
 			"fire_station"
 		]
+	},
+	110: {
+		"name": "Warehouses",
+		"items": [
+			"small_warehouse",
+			"medium_warehouse",
+			"large_warehouse",
+			"huge_warehouse"
+		]
 	}
 }
 
@@ -81,12 +98,12 @@ func initialize(world_node, submenu_node):
 		)
 
 
-
 func on_build_button_pressed():
 	if world == null:
 		return
 
 	var menu = world.get_node_or_null("../UI/ConstructionMenu")
+
 	if menu == null:
 		push_error("ConstructionMenu NOT FOUND")
 		return
@@ -100,8 +117,10 @@ func on_build_button_pressed():
 	menu.add_item("Businesses", 105)
 	menu.add_item("Utilities", 106)
 	menu.add_item("Public Services", 107)
+	menu.add_item("Mining", 109)
+	menu.add_item("Warehouses", 110)
 
-	menu.rect_size = Vector2(220, 270)
+	menu.rect_size = Vector2(240, 340)
 	menu.popup()
 
 
@@ -124,6 +143,13 @@ func on_category_selected(id):
 	if id == 101:
 		submenu_menu.add_item("Road A", 201)
 		submenu_menu.add_item("Road B", 202)
+		submenu_menu.rect_position = world.get_global_mouse_position()
+		submenu_menu.popup()
+		return
+
+	if id == 109:
+		submenu_menu.add_item("Stone Mine", 301)
+		submenu_menu.add_item("Iron Mine", 302)
 		submenu_menu.rect_position = world.get_global_mouse_position()
 		submenu_menu.popup()
 		return
@@ -151,7 +177,6 @@ func on_category_selected(id):
 	submenu_menu.popup()
 
 
-
 func _on_SubmenuMenu_id_pressed(id):
 	if world == null:
 		return
@@ -166,6 +191,20 @@ func _on_SubmenuMenu_id_pressed(id):
 		world._place_road(1)
 		return
 
+	if id == 301:
+		world.selected_building_for_placement = ""
+		world.road_placement_direction = -1
+		world.set_meta("mine_placement_resource", "stone")
+		print("STONE MINE SELECTED: Click its mountain's mining point.")
+		return
+
+	if id == 302:
+		world.selected_building_for_placement = ""
+		world.road_placement_direction = -1
+		world.set_meta("mine_placement_resource", "iron_ore")
+		print("IRON MINE SELECTED: Click its mountain's mining point.")
+		return
+
 	if not menu_building_ids.has(id):
 		push_error("UNKNOWN SUBMENU ID: " + str(id))
 		return
@@ -174,6 +213,9 @@ func _on_SubmenuMenu_id_pressed(id):
 
 	world.road_placement_direction = -1
 	world.selected_building_for_placement = building_id
+
+	if world.has_meta("mine_placement_resource"):
+		world.remove_meta("mine_placement_resource")
 
 	print(
 		"BUILDING SELECTED: ",

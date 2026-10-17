@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://World.gd" type="Script" id=1]
 [ext_resource path="res://Camera.gd" type="Script" id=2]
 [ext_resource path="res://scripts/RoadSystem.gd" type="Script" id=3]
 [ext_resource path="res://scripts/BuildingSystem.gd" type="Script" id=4]
+[ext_resource path="res://scripts/resources/MountainSystem.gd" type="Script" id=5]
 
 [node name="main" type="Node2D"]
 
@@ -30,6 +31,9 @@ script = ExtResource( 3 )
 
 [node name="BuildingSystem" type="Node2D" parent="."]
 script = ExtResource( 4 )
+
+[node name="MountainSystem" type="Node2D" parent="."]
+script = ExtResource( 5 )
 
 [connection signal="pressed" from="UI/ConstructionButton" to="world" method="_on_BuildHouseButton_pressed"]
 [connection signal="id_pressed" from="UI/ConstructionMenu" to="world" method="_on_ConstructionMenu_id_pressed"]
