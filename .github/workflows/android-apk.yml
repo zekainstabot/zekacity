@@ -131,10 +131,13 @@ jobs:
 
           section = content[start:end]
           values = {
-              'keystore/debug': os.environ['KEYSTORE'],
-              'keystore/debug_user': 'androiddebugkey',
-              'keystore/debug_password': 'android',
-          }
+    'keystore/debug': os.environ['KEYSTORE'],
+    'keystore/debug_user': 'androiddebugkey',
+    'keystore/debug_password': 'android',
+    'keystore/release': os.environ['KEYSTORE'],
+    'keystore/release_user': 'androiddebugkey',
+    'keystore/release_password': 'android',
+}
 
           for key, value in values.items():
               import re
