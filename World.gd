@@ -180,15 +180,19 @@ func _ready():
 		_update_treasury_label()
 
 		buy_land_button = Button.new()
+		buy_land_button.flat = true
 		buy_land_button.name = "BuyLandButton"
-		buy_land_button.text = "Buy Land"
+		buy_land_button.text = ""
+		buy_land_button.icon = load("res://land.png")
+		buy_land_button.expand_icon = false
+		buy_land_button.rect_min_size = Vector2(56, 56)
 		buy_land_button.visible = false
 		buy_land_button.anchor_left = 1.0
 		buy_land_button.anchor_right = 1.0
-		buy_land_button.margin_left = -180
-		buy_land_button.margin_right = -20
-		buy_land_button.margin_top = 50
-		buy_land_button.margin_bottom = 90
+		buy_land_button.margin_left = -185
+		buy_land_button.margin_right = -32
+		buy_land_button.margin_top = 55
+		buy_land_button.margin_bottom = 119
 		ui.add_child(buy_land_button)
 		buy_land_button.connect(
 			"pressed",
