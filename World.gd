@@ -178,17 +178,29 @@ func _ready():
 
 	var ui = get_node_or_null("../UI")
 
+	if ui == null:
+		ui = get_node_or_null("/root/main/UI")
+
 	if ui != null:
 		treasury_label = Label.new()
-		treasury_label.name = "TreasuryLabel"
+		treasury_label.name = "MoneyLabel"
+		treasury_label.text = "Money: $" + str(city_treasury.get_balance())
 		treasury_label.anchor_left = 1.0
 		treasury_label.anchor_right = 1.0
-		treasury_label.margin_left = -250
+		treasury_label.margin_left = -380
 		treasury_label.margin_right = -20
 		treasury_label.margin_top = 15
-		treasury_label.margin_bottom = 45
-		treasury_label.align = Label.ALIGN_RIGHT
+		treasury_label.margin_bottom = 75
+		treasury_label.align = Label.ALIGN_LEFT
+		treasury_label.valign = Label.VALIGN_CENTER
+		treasury_label.set("custom_fonts/font", null)
+		treasury_label.add_color_override(
+			"font_color",
+			Color(1, 1, 0.3, 1)
+		)
+		treasury_label.visible = true
 		ui.add_child(treasury_label)
+		treasury_label.raise()
 		_update_treasury_label()
 
 		buy_land_button = Button.new()
@@ -793,11 +805,7 @@ func _confirm_land_purchase():
 
 func _update_treasury_label():
 	if treasury_label != null:
-		treasury_label.text = (
-			"Municipal Treasury: $"
-			+ str(city_treasury.get_balance())
-		)
-
+		treasury_label.text = "Money: $" + str(city_treasury.get_balance())
 
 # =========================================
 # BUILDING ACTIONS

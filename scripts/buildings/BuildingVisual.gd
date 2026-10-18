@@ -56,6 +56,7 @@ func set_visual_alpha(value):
 	update()
 
 
+
 func _get_drawer(id):
 	if id in [
 		"small_house",
@@ -72,7 +73,8 @@ func _get_drawer(id):
 		"restaurant",
 		"office",
 		"shopping_mall",
-		"factory"
+		"factory",
+		"mineral_market"
 	]:
 		return world.commercial_buildings
 
@@ -110,6 +112,7 @@ func _get_drawer(id):
 		return world.recreation_buildings
 
 	return null
+
 
 
 func _draw():

@@ -1,4 +1,3 @@
-
 extends Camera2D
 
 var dragging = false
@@ -46,21 +45,23 @@ func _input(event):
 			touch_points.erase(event.index)
 			last_pinch_distance = 0.0
 
+			if touch_points.size() == 1:
+				dragging = false
+
 	elif event is InputEventScreenDrag:
 		if not touch_points.has(event.index):
 			return
 
-		var previous_points = touch_points.duplicate()
+		var old_distance = last_pinch_distance
 		touch_points[event.index] = event.position
 
 		if touch_points.size() >= 2:
-			var new_distance = _get_pinch_distance_from_points(touch_points)
+			var new_distance = _get_pinch_distance()
 
-			if last_pinch_distance > 0.0 and new_distance > 0.0:
-				var difference = new_distance - last_pinch_distance
-				var factor = last_pinch_distance / new_distance
-
+			if old_distance > 0.0 and new_distance > 0.0:
+				var factor = old_distance / new_distance
 				var new_zoom = zoom * factor
+
 				new_zoom.x = clamp(new_zoom.x, zoom_min, zoom_max)
 				new_zoom.y = clamp(new_zoom.y, zoom_min, zoom_max)
 
@@ -80,11 +81,18 @@ func _apply_zoom(amount, screen_position):
 		return
 
 	var screen_center = get_viewport_rect().size / 2.0
-	var world_position_before = get_camera_screen_position(screen_position, screen_center)
+	var world_position_before = get_camera_screen_position(
+		screen_position,
+		screen_center
+	)
 
 	zoom = Vector2(new_zoom, new_zoom)
 
-	var world_position_after = get_camera_screen_position(screen_position, screen_center)
+	var world_position_after = get_camera_screen_position(
+		screen_position,
+		screen_center
+	)
+
 	global_position += world_position_before - world_position_after
 
 
@@ -97,12 +105,6 @@ func _get_pinch_distance():
 		return 0.0
 
 	var keys = touch_points.keys()
-	return touch_points[keys[0]].distance_to(touch_points[keys[1]])
-
-
-func _get_pinch_distance_from_points(points):
-	if points.size() < 2:
-		return 0.0
-
-	var keys = points.keys()
-	return points[keys[0]].distance_to(points[keys[1]])
+	return touch_points[keys[0]].distance_to(
+		touch_points[keys[1]]
+	)
