@@ -17,6 +17,8 @@ var selected_building_for_placement = ""
 var placed_buildings = []
 var building_system = null
 
+var citizen_system = null
+
 var save_system = preload(
 	"res://scripts/SaveSystem.gd"
 ).new()
@@ -132,6 +134,10 @@ var land_purchase = preload(
 	"res://scripts/land/LandPurchase.gd"
 ).new()
 
+var land_purchase_controller = preload(
+	"res://scripts/land/LandPurchaseController.gd"
+).new()
+
 var treasury_label = null
 var land_purchase_dialog = null
 var pending_land_grid = Vector2(0, 0)
@@ -187,6 +193,7 @@ func _ready():
 		ui = get_node_or_null("/root/main/UI")
 
 	var ui_elements = world_ui_controller.initialize(self, ui)
+	land_purchase_controller.initialize(self)
 
 	treasury_label = ui_elements.get("treasury_label")
 	buy_land_button = ui_elements.get("buy_land_button")
@@ -273,11 +280,21 @@ func _ready():
 		"_confirm_building_demolition"
 	)
 
+	
+	citizen_system = load(
+		"res://scripts/citizens/CitizenSystem.gd"
+	).new()
+
+	citizen_system.name = "CitizenSystem"
+	add_child(citizen_system)
+	citizen_system.initialize(self)
+
 	update()
 
 	var save_loaded = save_system.load_world(self)
 
 	if not save_loaded:
+		citizen_system.sync_residents()
 		save_system.save_world(self)
 	else:
 		print("Previous city progress restored")
@@ -578,6 +595,11 @@ func _place_building(building_id):
 		building_system.set_buildings(placed_buildings)
 
 	storage_system.sync_warehouses(placed_buildings)
+	
+	
+	if citizen_system != null:
+		citizen_system.sync_residents()
+
 
 	selected_building_for_placement = ""
 	road_placement_direction = -1
@@ -669,97 +691,16 @@ func _unhandled_input(event):
 # LAND PURCHASE
 # =========================================
 
+
 func _buy_selected_land():
-	var grid_pos = Vector2(selected_x, selected_y)
-	var city_center = Vector2(0, 0)
-	var road_system = get_node_or_null("../RoadSystem")
-
-	if road_system == null:
-		push_error("RoadSystem node NOT FOUND")
-		return
-
-	var start_x = int(floor(grid_pos.x / 2.0)) * 2
-	var start_y = int(floor(grid_pos.y / 2.0)) * 2
-
-	var total_price = 0
-	var tiles_to_buy = 0
-
-	for x in range(start_x, start_x + 2):
-		for y in range(start_y, start_y + 2):
-			var tile = Vector2(x, y)
-
-			# Ignore tiles outside the map when buying land near an edge.
-			if not land_system.is_inside_map(tile):
-				continue
-			if not land_system.is_owned(tile):
-				total_price += land_system.get_land_price(
-					tile,
-					city_center,
-					road_system
-				)
-				tiles_to_buy += 1
-
-	if tiles_to_buy == 0:
-		print("LAND PURCHASE FAILED: AREA_ALREADY_OWNED")
-		return
-
-	if not city_treasury.can_afford(total_price):
-		print(
-			"NOT ENOUGH MONEY. Price: ",
-			total_price,
-			" | Balance: $",
-			city_treasury.get_balance()
-		)
-		return
-
-	pending_land_grid = grid_pos
-
-	world_ui_controller.show_land_purchase_dialog(
-	tiles_to_buy,
-	total_price,
-	city_treasury.get_balance()
-)
-
+	if land_purchase_controller != null:
+		land_purchase_controller.request_selected_land()
 
 
 func _confirm_land_purchase():
-	var road_system = get_node_or_null("../RoadSystem")
+	if land_purchase_controller != null:
+		land_purchase_controller.confirm_land_purchase()
 
-	if road_system == null:
-		push_error("RoadSystem node NOT FOUND")
-		return
-
-	var result = land_purchase.purchase_area(
-		pending_land_grid,
-		Vector2(0, 0),
-		land_system,
-		city_treasury,
-		road_system
-	)
-
-	if not result.get("success", false):
-		print(
-			"LAND PURCHASE FAILED: ",
-			result.get("error", "UNKNOWN_ERROR")
-		)
-		return
-
-	print(
-		"LAND PURCHASED. Tiles: ",
-		result["tiles_bought"],
-		" | Price: ",
-		result["price"],
-		" | Remaining: $",
-		result["balance"]
-	)
-
-	_update_treasury_label()
-
-	if buy_land_button != null:
-		buy_land_button.visible = false
-
-	update()
-	save_system.save_world(self)
 
 func _update_treasury_label():
 	if world_ui_controller != null:
@@ -912,6 +853,11 @@ func _confirm_building_demolition():
 
 	# Keep shared warehouse capacity synchronized after demolition.
 	storage_system.sync_warehouses(placed_buildings)
+	
+	
+	if citizen_system != null:
+		citizen_system.sync_residents()
+
 
 	_refresh_building_visuals()
 	_update_treasury_label()
