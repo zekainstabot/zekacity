@@ -22,10 +22,10 @@ script = ExtResource( 2 )
 anchor_top = 1.0
 anchor_bottom = 1.0
 margin_left = 24.0
-margin_top = -88.0
-margin_right = 88.0
+margin_top = -112.0
+margin_right = 112.0
 margin_bottom = -24.0
-rect_min_size = Vector2( 64, 64 )
+rect_min_size = Vector2( 88, 88 )
 icon = ExtResource( 6 )
 
 [node name="ConstructionMenu" type="PopupMenu" parent="UI"]

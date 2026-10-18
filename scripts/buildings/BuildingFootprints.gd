@@ -1,9 +1,7 @@
-
 extends Reference
 
 # ZekaCity - BuildingFootprints.gd
 # Godot 3.6
-# تعیین ابعاد و تعداد خانه‌های اشغال‌شده توسط هر ساختمان
 
 var footprints = {
 	"small_house": Vector2(1, 1),
@@ -32,7 +30,7 @@ var footprints = {
 	"police_station": Vector2(2, 2),
 	"fire_station": Vector2(2, 2),
 	"city_hall": Vector2(3, 3),
-	
+
 	"small_warehouse": Vector2(2, 2),
 	"medium_warehouse": Vector2(3, 2),
 	"large_warehouse": Vector2(3, 3),
@@ -68,9 +66,26 @@ func get_tile_count(building_id):
 func fits_inside_map(building_id, origin, grid_size):
 	var size = get_footprint(building_id)
 
-	return (
-		origin.x >= 0
-		and origin.y >= 0
-		and origin.x + size.x <= grid_size
-		and origin.y + size.y <= grid_size
-	)
+	if origin.x < 0 or origin.y < 0:
+		return false
+
+	if origin.x != int(origin.x) or origin.y != int(origin.y):
+		return false
+
+	if size.x <= 0 or size.y <= 0:
+		return false
+
+	if origin.x + size.x > grid_size:
+		return false
+
+	if origin.y + size.y > grid_size:
+		return false
+
+	for tile in get_occupied_tiles(building_id, origin):
+		if tile.x < 0 or tile.y < 0:
+			return false
+
+		if tile.x >= grid_size or tile.y >= grid_size:
+			return false
+
+	return true

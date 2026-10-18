@@ -3,7 +3,7 @@ extends Reference
 
 # ZekaCity - LandPurchase.gd
 # Godot 3.6
-# خرید زمین به صورت مربع 2x2
+# خرید زمین به صورت 2x2؛ در لبه نقشه فقط خانه‌های داخل نقشه خریداری می‌شوند.
 
 var area_size = 2
 
@@ -41,12 +41,11 @@ func purchase_area(
 		for y in range(start_y, start_y + area_size):
 			var tile = Vector2(x, y)
 
+			# خانه‌های بیرون نقشه نادیده گرفته می‌شوند.
 			if not land_system.is_inside_map(tile):
-				return {
-					"success": false,
-					"error": "AREA_OUTSIDE_MAP"
-				}
+				continue
 
+			# فقط زمین‌هایی که هنوز خریداری نشده‌اند.
 			if not land_system.is_owned(tile):
 				var tile_price = land_system.get_land_price(
 					tile,
@@ -83,8 +82,16 @@ func purchase_area(
 			"price": total_price
 		}
 
+	var bought_tiles = []
+
 	for item in area_tiles:
-		if not land_system.buy_land(item["grid"]):
+		if land_system.buy_land(item["grid"]):
+			bought_tiles.append(item["grid"])
+		else:
+			# در صورت خطا، خرید را برمی‌گردانیم.
+			for bought_tile in bought_tiles:
+				land_system.owned_tiles.erase(bought_tile)
+
 			city_treasury.add_money(total_price)
 
 			return {
@@ -96,7 +103,7 @@ func purchase_area(
 	return {
 		"success": true,
 		"price": total_price,
-		"tiles_bought": area_tiles.size(),
+		"tiles_bought": bought_tiles.size(),
 		"balance": city_treasury.get_balance(),
 		"area_origin": Vector2(start_x, start_y)
 	}

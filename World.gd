@@ -17,6 +17,13 @@ var selected_building_for_placement = ""
 var placed_buildings = []
 var building_system = null
 
+var save_system = preload(
+	"res://scripts/SaveSystem.gd"
+).new()
+
+var autosave_elapsed = 0.0
+var autosave_interval = 30.0
+
 var storage_system = preload(
 	"res://scripts/resources/StorageSystem.gd"
 ).new()
@@ -185,7 +192,7 @@ func _ready():
 		buy_land_button.text = ""
 		buy_land_button.icon = load("res://land.png")
 		buy_land_button.expand_icon = false
-		buy_land_button.rect_min_size = Vector2(56, 56)
+		buy_land_button.rect_min_size = Vector2(76, 76)
 		buy_land_button.visible = false
 		buy_land_button.anchor_left = 1.0
 		buy_land_button.anchor_right = 1.0
@@ -204,7 +211,13 @@ func _ready():
 
 	land_purchase_dialog = ConfirmationDialog.new()
 	land_purchase_dialog.name = "LandPurchaseDialog"
-	add_child(land_purchase_dialog)
+
+	if ui != null:
+		ui.add_child(land_purchase_dialog)
+	else:
+		add_child(land_purchase_dialog)
+		push_error("Land purchase dialog attached to World because UI was not found")
+
 	land_purchase_dialog.connect(
 		"confirmed",
 		self,
@@ -274,6 +287,7 @@ func _ready():
 
 	building_action_dialog = ConfirmationDialog.new()
 	building_action_dialog.name = "BuildingActionDialog"
+	building_action_dialog.rect_min_size = Vector2(420, 200)
 	add_child(building_action_dialog)
 
 	building_action_dialog.connect(
@@ -283,6 +297,13 @@ func _ready():
 	)
 
 	update()
+	
+	var save_loaded = save_system.load_world(self)
+
+	if not save_loaded:
+		save_system.save_world(self)
+	else:
+		print("Previous city progress restored")
 
 
 # =========================================
@@ -673,10 +694,9 @@ func _buy_selected_land():
 		for y in range(start_y, start_y + 2):
 			var tile = Vector2(x, y)
 
+						# Ignore tiles outside the map when buying land near an edge.
 			if not land_system.is_inside_map(tile):
-				print("LAND PURCHASE FAILED: AREA_OUTSIDE_MAP")
-				return
-
+				continue
 			if not land_system.is_owned(tile):
 				total_price += land_system.get_land_price(
 					tile,
@@ -853,3 +873,19 @@ func _confirm_building_demolition():
 
 	_refresh_building_visuals()
 	update()
+	
+func _process(delta):
+	if save_system == null:
+		return
+
+	autosave_elapsed += delta
+
+	if autosave_elapsed >= autosave_interval:
+		autosave_elapsed = 0.0
+		save_system.save_world(self)
+
+
+func _notification(what):
+	if what == NOTIFICATION_WM_QUIT_REQUEST:
+		if save_system != null:
+			save_system.save_world(self)

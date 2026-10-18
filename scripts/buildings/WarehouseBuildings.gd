@@ -11,11 +11,6 @@ static func draw_building(canvas, building_id, pos):
 
 	var tile_width = 64.0
 	var tile_height = 32.0
-
-	var half_w = tile_width * width / 2.0
-	var half_d = tile_width * depth / 2.0
-	var ground_h = tile_height * (width + depth) / 2.0
-
 	var height = 28.0
 
 	match building_id:
@@ -26,60 +21,86 @@ static func draw_building(canvas, building_id, pos):
 		"huge_warehouse":
 			height = 58.0
 
-	# pos نقطه مرکزی لبه جلویی ساختمان است.
-	var front = pos
-	var left = Vector2(pos.x - half_w, pos.y - tile_height * width / 2.0)
-	var right = Vector2(pos.x + half_d, pos.y - tile_height * depth / 2.0)
-	var back = Vector2(pos.x - half_w + half_d, pos.y - ground_h)
+	# pos مرکز footprint است؛ نه گوشه جلویی ساختمان
+	var half_x = tile_width * (width + depth) / 4.0
+	var half_y = tile_height * (width + depth) / 4.0
 
-	# تصحیح چهار گوشه کف ایزومتریک
-	left = Vector2(pos.x - half_w, pos.y - tile_height * width / 2.0)
-	right = Vector2(pos.x + half_d, pos.y - tile_height * depth / 2.0)
-	back = Vector2(pos.x - half_w + half_d, pos.y - ground_h)
+	var top = pos + Vector2(
+		(tile_width / 4.0) * (depth - width),
+		-half_y
+	)
 
-	var roof_front = front - Vector2(0, height)
-	var roof_left = left - Vector2(0, height)
+	var right = pos + Vector2(
+		half_x,
+		(tile_height / 4.0) * (width - depth)
+	)
+
+	var bottom = pos + Vector2(
+		(tile_width / 4.0) * (depth - width),
+		half_y
+	)
+
+	var left = pos + Vector2(
+		-half_x,
+		(tile_height / 4.0) * (depth - width)
+	)
+
+	var roof_top = top - Vector2(0, height)
 	var roof_right = right - Vector2(0, height)
-	var roof_back = back - Vector2(0, height)
+	var roof_bottom = bottom - Vector2(0, height)
+	var roof_left = left - Vector2(0, height)
 
-	# دیوارها
+	var outline = Color(0.16, 0.18, 0.20)
+
+	# دیوار سمت چپ
 	canvas.draw_colored_polygon(
-		PoolVector2Array([roof_left, roof_front, front, left]),
+		PoolVector2Array([
+			roof_left, roof_bottom, bottom, left
+		]),
 		Color(0.58, 0.44, 0.29)
 	)
 
+	# دیوار سمت راست
 	canvas.draw_colored_polygon(
-		PoolVector2Array([roof_front, roof_right, right, front]),
+		PoolVector2Array([
+			roof_bottom, roof_right, right, bottom
+		]),
 		Color(0.40, 0.30, 0.21)
 	)
 
 	# سقف
 	canvas.draw_colored_polygon(
-		PoolVector2Array([roof_back, roof_left, roof_front, roof_right]),
+		PoolVector2Array([
+			roof_top, roof_left, roof_bottom, roof_right
+		]),
 		Color(0.32, 0.38, 0.42)
 	)
 
-	# خطوط لبه
-	var outline = Color(0.16, 0.18, 0.20)
-	canvas.draw_line(roof_back, roof_left, outline, 2.0)
-	canvas.draw_line(roof_left, roof_front, outline, 2.0)
-	canvas.draw_line(roof_front, roof_right, outline, 2.0)
-	canvas.draw_line(roof_right, roof_back, outline, 2.0)
+	# خطوط سقف و دیوارها
+	canvas.draw_line(roof_top, roof_left, outline, 2.0)
+	canvas.draw_line(roof_left, roof_bottom, outline, 2.0)
+	canvas.draw_line(roof_bottom, roof_right, outline, 2.0)
+	canvas.draw_line(roof_right, roof_top, outline, 2.0)
 	canvas.draw_line(roof_left, left, outline, 2.0)
 	canvas.draw_line(roof_right, right, outline, 2.0)
-	canvas.draw_line(roof_front, front, outline, 2.0)
+	canvas.draw_line(roof_bottom, bottom, outline, 2.0)
 
-	# در ورودی
+	# در ورودی روی دیوار جلویی
 	var door_width = 12.0 + max(width, depth) * 2.0
 	var door_height = 16.0 + max(width, depth) * 2.0
-	var door_top = front - Vector2(0, door_height)
+	var door_top = roof_bottom + Vector2(0, door_height * 0.15)
+
 	var door = PoolVector2Array([
-		door_top - Vector2(door_width / 2.0, 0),
+		door_top + Vector2(-door_width / 2.0, 0),
 		door_top + Vector2(door_width / 2.0, 0),
-		front + Vector2(0, -2.0),
-		front - Vector2(door_width / 2.0, 0)
+		bottom + Vector2(0, -2.0),
+		door_top + Vector2(-door_width / 2.0, 0)
 	])
-	canvas.draw_colored_polygon(door, Color(0.20, 0.15, 0.11))
+
+	canvas.draw_colored_polygon(
+		door,
+		Color(0.20, 0.15, 0.11)
+	)
 
 
 static func _get_footprint(building_id):

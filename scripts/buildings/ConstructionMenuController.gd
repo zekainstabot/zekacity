@@ -1,3 +1,4 @@
+
 extends Reference
 
 # ZekaCity - ConstructionMenuController.gd
@@ -120,7 +121,10 @@ func on_build_button_pressed():
 	menu.add_item("Mining", 109)
 	menu.add_item("Warehouses", 110)
 
-	menu.rect_size = Vector2(240, 340)
+	menu.rect_min_size = Vector2(360, 500)
+	menu.rect_size = Vector2(360, 500)
+	menu.add_constant_override("vseparation", 18)
+	menu.add_constant_override("hseparation", 12)
 	menu.popup()
 
 
@@ -143,15 +147,13 @@ func on_category_selected(id):
 	if id == 101:
 		submenu_menu.add_item("Road A", 201)
 		submenu_menu.add_item("Road B", 202)
-		submenu_menu.rect_position = world.get_global_mouse_position()
-		submenu_menu.popup()
+		_show_submenu()
 		return
 
 	if id == 109:
 		submenu_menu.add_item("Stone Mine", 301)
 		submenu_menu.add_item("Iron Mine", 302)
-		submenu_menu.rect_position = world.get_global_mouse_position()
-		submenu_menu.popup()
+		_show_submenu()
 		return
 
 	if not category_buildings.has(id):
@@ -173,6 +175,14 @@ func on_category_selected(id):
 
 		submenu_menu.add_item(display_name, menu_id)
 
+	_show_submenu()
+
+
+func _show_submenu():
+	submenu_menu.rect_min_size = Vector2(320, 100)
+	submenu_menu.rect_size = Vector2(320, 100)
+	submenu_menu.add_constant_override("vseparation", 18)
+	submenu_menu.add_constant_override("hseparation", 12)
 	submenu_menu.rect_position = world.get_global_mouse_position()
 	submenu_menu.popup()
 
