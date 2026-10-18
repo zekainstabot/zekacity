@@ -103,7 +103,7 @@ func _handle_mine_placement(mouse_pos, world):
 		return
 
 		world.remove_meta("mine_placement_resource")
-
+	
 	if world.has_method("_update_treasury_label"):
 		world._update_treasury_label()
 

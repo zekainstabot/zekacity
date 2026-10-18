@@ -40,6 +40,10 @@ var construction_menu_controller = preload(
 	"res://scripts/buildings/ConstructionMenuController.gd"
 ).new()
 
+var world_ui_controller = preload(
+	"res://scripts/ui/WorldUIController.gd"
+).new()
+
 var building_action_panel = null
 var building_visuals_root = null
 
@@ -173,6 +177,7 @@ var building_names = {
 # INITIALIZATION
 # =========================================
 
+
 func _ready():
 	print("CITY TREASURY INITIALIZED: ", city_treasury.get_balance())
 
@@ -181,65 +186,14 @@ func _ready():
 	if ui == null:
 		ui = get_node_or_null("/root/main/UI")
 
-	if ui != null:
-		treasury_label = Label.new()
-		treasury_label.name = "MoneyLabel"
-		treasury_label.text = "Money: $" + str(city_treasury.get_balance())
-		treasury_label.anchor_left = 1.0
-		treasury_label.anchor_right = 1.0
-		treasury_label.margin_left = -380
-		treasury_label.margin_right = -20
-		treasury_label.margin_top = 15
-		treasury_label.margin_bottom = 75
-		treasury_label.align = Label.ALIGN_LEFT
-		treasury_label.valign = Label.VALIGN_CENTER
-		treasury_label.set("custom_fonts/font", null)
-		treasury_label.add_color_override(
-			"font_color",
-			Color(1, 1, 0.3, 1)
-		)
-		treasury_label.visible = true
-		ui.add_child(treasury_label)
-		treasury_label.raise()
+	var ui_elements = world_ui_controller.initialize(self, ui)
+
+	treasury_label = ui_elements.get("treasury_label")
+	buy_land_button = ui_elements.get("buy_land_button")
+	land_purchase_dialog = ui_elements.get("land_purchase_dialog")
+
+	if treasury_label != null:
 		_update_treasury_label()
-
-		buy_land_button = Button.new()
-		buy_land_button.flat = true
-		buy_land_button.name = "BuyLandButton"
-		buy_land_button.text = ""
-		buy_land_button.icon = load("res://land.png")
-		buy_land_button.expand_icon = false
-		buy_land_button.rect_min_size = Vector2(76, 76)
-		buy_land_button.visible = false
-		buy_land_button.anchor_left = 1.0
-		buy_land_button.anchor_right = 1.0
-		buy_land_button.margin_left = -185
-		buy_land_button.margin_right = -32
-		buy_land_button.margin_top = 55
-		buy_land_button.margin_bottom = 119
-		ui.add_child(buy_land_button)
-		buy_land_button.connect(
-			"pressed",
-			self,
-			"_buy_selected_land"
-		)
-	else:
-		push_error("UI node NOT FOUND")
-
-	land_purchase_dialog = ConfirmationDialog.new()
-	land_purchase_dialog.name = "LandPurchaseDialog"
-
-	if ui != null:
-		ui.add_child(land_purchase_dialog)
-	else:
-		add_child(land_purchase_dialog)
-		push_error("Land purchase dialog attached to World because UI was not found")
-
-	land_purchase_dialog.connect(
-		"confirmed",
-		self,
-		"_confirm_land_purchase"
-	)
 
 	land_system.initialize(grid_size)
 
@@ -301,11 +255,11 @@ func _ready():
 		self,
 		"_on_BuildingActionMenu_id_pressed"
 	)
-	
+
 	building_action_panel.connect(
-	"market_sell_requested",
-	self,
-	"_on_market_sell_requested"
+		"market_sell_requested",
+		self,
+		"_on_market_sell_requested"
 	)
 
 	building_action_dialog = ConfirmationDialog.new()
@@ -320,7 +274,7 @@ func _ready():
 	)
 
 	update()
-	
+
 	var save_loaded = save_system.load_world(self)
 
 	if not save_loaded:
@@ -734,7 +688,7 @@ func _buy_selected_land():
 		for y in range(start_y, start_y + 2):
 			var tile = Vector2(x, y)
 
-						# Ignore tiles outside the map when buying land near an edge.
+			# Ignore tiles outside the map when buying land near an edge.
 			if not land_system.is_inside_map(tile):
 				continue
 			if not land_system.is_owned(tile):
@@ -810,10 +764,9 @@ func _confirm_land_purchase():
 	update()
 	save_system.save_world(self)
 
-
 func _update_treasury_label():
-	if treasury_label != null:
-		treasury_label.text = "Money: $" + str(city_treasury.get_balance())
+	if world_ui_controller != null:
+		world_ui_controller.update_treasury_label()
 
 # =========================================
 # BUILDING ACTIONS
