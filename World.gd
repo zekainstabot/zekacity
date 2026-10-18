@@ -543,6 +543,7 @@ func _on_ConstructionMenu_id_pressed(id):
 # PLACING BUILDINGS
 # =========================================
 
+
 func _place_building(building_id):
 	var grid_pos = Vector2(selected_x, selected_y)
 	var road_system = get_node_or_null("../RoadSystem")
@@ -574,47 +575,46 @@ func _place_building(building_id):
 	var StorageDefinitions = load(
 		"res://scripts/resources/StorageDefinitions.gd"
 	)
+	var BuildingData = load(
+		"res://scripts/BuildingData.gd"
+	)
 
 	var building_cost = 0
 
-	# Only warehouses have a cost defined in StorageDefinitions.
 	if StorageDefinitions.has_warehouse(building_id):
-		building_cost = StorageDefinitions.get_cost(building_id)
-
-		if building_cost < 0:
-			print("BUILDING PLACEMENT FAILED: INVALID_WAREHOUSE")
-			return false
-
-		if not city_treasury.can_afford(building_cost):
+		building_cost = int(
+			StorageDefinitions.get_cost(building_id)
+		)
+	else:
+		if not BuildingData.BUILDINGS.has(building_id):
 			print(
-				"NOT ENOUGH MONEY. Cost: $",
-				building_cost,
-				" | Balance: $",
-				city_treasury.get_balance()
+				"BUILDING PLACEMENT FAILED: UNKNOWN_BUILDING_COST: ",
+				building_id
 			)
 			return false
 
+		building_cost = int(
+			BuildingData.BUILDINGS[building_id].get("cost", 0)
+		)
+
+	if building_cost < 0:
+		print("BUILDING PLACEMENT FAILED: INVALID_COST")
+		return false
+
+	if not city_treasury.can_afford(building_cost):
+		print(
+			"NOT ENOUGH MONEY. Cost: $",
+			building_cost,
+			" | Balance: $",
+			city_treasury.get_balance()
+		)
+		return false
+
+	if building_cost > 0:
 		if not city_treasury.spend(building_cost):
 			print("BUILDING PLACEMENT FAILED: PAYMENT_FAILED")
 			return false
-			
-		if building_id == "mineral_market":
-			building_cost = 500
 
-		if not city_treasury.can_afford(building_cost):
-			print(
-				"NOT ENOUGH MONEY FOR MINERAL MARKET. Cost: $",
-				building_cost,
-				" | Balance: $",
-				city_treasury.get_balance()
-			)
-			return false
-
-		if not city_treasury.spend(building_cost):
-			print("MINERAL MARKET PLACEMENT FAILED: PAYMENT_FAILED")
-			return false
-
-	# IMPORTANT: Add every building, not just warehouses.
 	placed_buildings.append({
 		"grid": grid_pos,
 		"id": building_id
@@ -623,7 +623,6 @@ func _place_building(building_id):
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
 
-	# Refresh shared storage capacity after building placement.
 	storage_system.sync_warehouses(placed_buildings)
 
 	selected_building_for_placement = ""
@@ -642,8 +641,9 @@ func _place_building(building_id):
 		building_cost
 	)
 
-	return true
+	save_system.save_world(self)
 
+	return true
 
 # =========================================
 # PLACING ROADS
@@ -761,13 +761,14 @@ func _buy_selected_land():
 	pending_land_grid = grid_pos
 
 	land_purchase_dialog.dialog_text = (
-		"Buy land in this 5x5 area?\n"
+		"Buy land in this 2x2 area?\n"
 		+ "Tiles to buy: " + str(tiles_to_buy) + "\n"
 		+ "Total price: $" + str(total_price) + "\n"
 		+ "Current treasury: $" + str(city_treasury.get_balance())
 	)
 
 	land_purchase_dialog.popup_centered()
+
 
 
 func _confirm_land_purchase():
@@ -785,22 +786,29 @@ func _confirm_land_purchase():
 		road_system
 	)
 
-	if result["success"]:
+	if not result.get("success", false):
 		print(
-			"LAND PURCHASED. Tiles: ",
-			result["tiles_bought"],
-			" | Price: ",
-			result["price"],
-			" | Remaining: $",
-			result["balance"]
+			"LAND PURCHASE FAILED: ",
+			result.get("error", "UNKNOWN_ERROR")
 		)
-		_update_treasury_label()
+		return
+
+	print(
+		"LAND PURCHASED. Tiles: ",
+		result["tiles_bought"],
+		" | Price: ",
+		result["price"],
+		" | Remaining: $",
+		result["balance"]
+	)
+
+	_update_treasury_label()
 
 	if buy_land_button != null:
 		buy_land_button.visible = false
-		update()
-	else:
-		print("LAND PURCHASE FAILED: ", result["error"])
+
+	update()
+	save_system.save_world(self)
 
 
 func _update_treasury_label():
@@ -956,7 +964,10 @@ func _confirm_building_demolition():
 	storage_system.sync_warehouses(placed_buildings)
 
 	_refresh_building_visuals()
+	_update_treasury_label()
 	update()
+	save_system.save_world(self)
+
 	
 func _process(delta):
 	if save_system == null:

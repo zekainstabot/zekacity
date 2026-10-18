@@ -102,11 +102,15 @@ func _handle_mine_placement(mouse_pos, world):
 		print("MINE PLACEMENT FAILED: Check the treasury balance and try again.")
 		return
 
-	world.remove_meta("mine_placement_resource")
+		world.remove_meta("mine_placement_resource")
+
 	if world.has_method("_update_treasury_label"):
 		world._update_treasury_label()
-	print("MINE BUILT SUCCESSFULLY: ", target_mountain_id, " | Cost: $", mountain_system.mine_cost)
 
+	if world.save_system != null:
+		world.save_system.save_world(world)
+
+	print("MINE BUILT SUCCESSFULLY: ", target_mountain_id, " | Cost: $", mountain_system.mine_cost)
 
 func _handle_building_move(mouse_pos, world):
 	var center = Vector2(600, 130)
@@ -140,8 +144,12 @@ func _handle_building_move(mouse_pos, world):
 
 	world.moving_building_index = -1
 	world.moving_building_origin = Vector2(-1, -1)
+	
 	world._refresh_building_visuals()
 	world.update()
+
+	if result["success"]:
+		world.save_system.save_world(world)
 
 	if world.building_action_panel != null:
 		_show_selected_building_panel(world)
