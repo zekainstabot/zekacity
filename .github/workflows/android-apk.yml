@@ -95,7 +95,7 @@ jobs:
           test -s "$TEMPLATE_ROOT/android_debug.apk"
           test -s "$TEMPLATE_ROOT/android_release.apk"
 
-      - name: Configure Android debug signing
+      - name: Configure Android signing
         shell: bash
         run: |
           set -euo pipefail
@@ -116,46 +116,53 @@ jobs:
 
           python3 <<'PY'
           import os
+          import re
           from pathlib import Path
 
           path = Path("export_presets.cfg")
           content = path.read_text(encoding="utf-8")
 
-          start = content.find('[preset.0.options]')
+          start = content.find("[preset.0.options]")
           if start == -1:
-              raise SystemExit("ERROR: Android preset options were not found.")
+              raise SystemExit(
+                  "ERROR: Android preset options were not found."
+              )
 
-          end = content.find('\n[preset.', start + 1)
+          end = content.find("\n[preset.", start + 1)
           if end == -1:
               end = len(content)
 
           section = content[start:end]
+
           values = {
-    'keystore/debug': os.environ['KEYSTORE'],
-    'keystore/debug_user': 'androiddebugkey',
-    'keystore/debug_password': 'android',
-    'keystore/release': os.environ['KEYSTORE'],
-    'keystore/release_user': 'androiddebugkey',
-    'keystore/release_password': 'android',
-}
+              "keystore/debug": os.environ["KEYSTORE"],
+              "keystore/debug_user": "androiddebugkey",
+              "keystore/debug_password": "android",
+              "keystore/release": os.environ["KEYSTORE"],
+              "keystore/release_user": "androiddebugkey",
+              "keystore/release_password": "android",
+          }
 
           for key, value in values.items():
-              import re
               pattern = re.compile(
                   r'(?m)^' + re.escape(key) + r'="[^"]*"'
               )
-              replacement = key + '="' + value.replace('\\', '\\\\') + '"'
+              escaped_value = value.replace("\\", "\\\\")
+              replacement = key + '="' + escaped_value + '"'
+
               if pattern.search(section):
                   section = pattern.sub(
-                      lambda _: replacement, section, count=1
+                      lambda _: replacement,
+                      section,
+                      count=1,
                   )
               else:
-                  section += '\n' + replacement
+                  section += "\n" + replacement
 
           content = content[:start] + section + content[end:]
           path.write_text(content, encoding="utf-8")
 
-          print("Android debug signing configured.")
+          print("Android signing configured.")
           PY
 
       - name: Validate project and Android preset
