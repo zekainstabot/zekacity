@@ -51,7 +51,8 @@ var category_buildings = {
 			"restaurant",
 			"office",
 			"shopping_mall",
-			"factory"
+			"factory",
+			"mineral_market"
 		]
 	},
 	106: {

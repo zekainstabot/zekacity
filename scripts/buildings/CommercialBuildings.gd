@@ -27,6 +27,9 @@ func draw_building(canvas, building_id, pos):
 		"factory":
 			_draw_factory(canvas, pos)
 
+		"mineral_market":
+			_draw_shop(canvas, pos, Color(0.65, 0.62, 0.82))
+
 
 # =========================================
 # SHOPS AND RESTAURANTS

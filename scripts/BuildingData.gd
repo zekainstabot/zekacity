@@ -84,6 +84,13 @@ const BUILDINGS = {
 		"population_required": 40,
 		"cost": 1800
 	},
+	"mineral_market": {
+		"name": "Mineral Market",
+		"category": CATEGORY_BUSINESS,
+		"stage": 1,
+		"population_required": 0,
+		"cost": 500
+	},
 	"shopping_mall": {
 		"name": "Shopping Mall",
 		"category": CATEGORY_ADVANCED,

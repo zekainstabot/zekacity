@@ -32,6 +32,10 @@ var resource_manager = preload(
 	"res://scripts/resources/ResourceManager.gd"
 ).new()
 
+var mineral_market_system = preload(
+	"res://scripts/economy/MineralMarketSystem.gd"
+).new()
+
 var construction_menu_controller = preload(
 	"res://scripts/buildings/ConstructionMenuController.gd"
 ).new()
@@ -142,6 +146,7 @@ var building_names = {
 	"office": "Office Building",
 	"shopping_mall": "Shopping Mall",
 	"factory": "Factory",
+	"mineral_market": "Mineral Market",
 	"water_tower": "Water Tower",
 	"power_station": "Power Station",
 	"sewage_plant": "Sewage Plant",
@@ -283,6 +288,12 @@ func _ready():
 		"building_action_selected",
 		self,
 		"_on_BuildingActionMenu_id_pressed"
+	)
+	
+	building_action_panel.connect(
+	"market_sell_requested",
+	self,
+	"_on_market_sell_requested"
 	)
 
 	building_action_dialog = ConfirmationDialog.new()
@@ -426,7 +437,8 @@ func _draw_building(building_id, grid_pos, center):
 		"restaurant",
 		"office",
 		"shopping_mall",
-		"factory"
+		"factory",
+		"mineral_market"
 	]:
 		commercial_buildings.draw_building(
 			self,
@@ -572,6 +584,22 @@ func _place_building(building_id):
 
 		if not city_treasury.spend(building_cost):
 			print("BUILDING PLACEMENT FAILED: PAYMENT_FAILED")
+			return false
+			
+		if building_id == "mineral_market":
+			building_cost = 500
+
+		if not city_treasury.can_afford(building_cost):
+			print(
+				"NOT ENOUGH MONEY FOR MINERAL MARKET. Cost: $",
+				building_cost,
+				" | Balance: $",
+				city_treasury.get_balance()
+			)
+			return false
+
+		if not city_treasury.spend(building_cost):
+			print("MINERAL MARKET PLACEMENT FAILED: PAYMENT_FAILED")
 			return false
 
 	# IMPORTANT: Add every building, not just warehouses.
@@ -830,6 +858,54 @@ func _on_BuildingActionMenu_id_pressed(id):
 		4:
 			if building_action_menu != null:
 				building_action_menu.hide()
+				
+func _on_market_sell_requested(resource_id, amount):
+	if selected_building_index < 0:
+		return
+
+	if selected_building_index >= placed_buildings.size():
+		return
+
+	var building = placed_buildings[selected_building_index]
+
+	if str(building.get("id", "")) != "mineral_market":
+		return
+
+	var result = mineral_market_system.receive_from_municipal_storage(
+		resource_id,
+		amount,
+		resource_manager,
+		city_treasury
+	)
+
+	if not result.get("success", false):
+		print(
+			"MARKET TRANSFER FAILED: ",
+			result.get("error", "UNKNOWN_ERROR")
+		)
+		return
+
+	print(
+		"MARKET TRANSFER SUCCESS: ",
+		result["amount"],
+		" ",
+		result["product"],
+		" | Revenue: $",
+		result["revenue"],
+		" | Market stock: ",
+		result["stock"]
+	)
+
+	_update_treasury_label()
+	save_system.save_world(self)
+
+	building_action_panel.show_for_building(
+		"Mineral Market",
+		self,
+		"mineral_market"
+	)
+
+	update()
 
 
 # =========================================

@@ -20,6 +20,7 @@ func save_world(world):
 		"owned_tiles": [],
 		"treasury": {},
 		"resources": {},
+		"mineral_market": {},
 		"roads": [],
 		"mountains": [],
 		"mines": []
@@ -53,10 +54,16 @@ func save_world(world):
 		"municipal_banks": treasury.municipal_banks.duplicate(true)
 	}
 
-	# منابع
+	# منابع شهرداری
 	data["resources"] = (
 		world.resource_manager.get_all_amounts()
 	)
+
+	# موجودی بازار مواد معدنی
+	var market = world.get("mineral_market_system")
+
+	if market != null:
+		data["mineral_market"] = market.get_stock_data()
 
 	# جاده‌ها
 	var road_system = world.get_node_or_null("../RoadSystem")
@@ -101,6 +108,7 @@ func save_world(world):
 					"elapsed": float(mine["elapsed"])
 				})
 
+	# نوشتن فایل ذخیره
 	var file = File.new()
 	var error = file.open(SAVE_PATH, File.WRITE)
 
@@ -153,7 +161,7 @@ func load_world(world):
 			)
 		})
 
-	# زمین‌ها
+	# زمین‌های خریداری‌شده
 	world.land_system.owned_tiles.clear()
 
 	for tile in data.get("owned_tiles", []):
@@ -181,7 +189,7 @@ func load_world(world):
 		"municipal_banks", []
 	).duplicate(true)
 
-	# منابع
+	# منابع شهرداری
 	var saved_resources = data.get("resources", {})
 
 	for resource_id in world.resource_manager.amounts.keys():
@@ -189,6 +197,15 @@ func load_world(world):
 			world.resource_manager.amounts[resource_id] = int(
 				saved_resources[resource_id]
 			)
+
+	# بازیابی موجودی بازار مواد معدنی
+	# اگر فایل ذخیره قدیمی باشد، موجودی بازار صفر می‌شود.
+	var market = world.get("mineral_market_system")
+
+	if market != null:
+		market.restore_stock(
+			data.get("mineral_market", {})
+		)
 
 	# جاده‌ها
 	var road_system = world.get_node_or_null("../RoadSystem")
@@ -251,16 +268,18 @@ func load_world(world):
 
 		mountain_system.update()
 
-	# بازسازی وضعیت بصری و ظرفیت انبارها
+	# بازسازی ظرفیت انبارها
 	world.storage_system.sync_warehouses(
 		world.placed_buildings
 	)
 
+	# بازسازی ساختمان‌ها
 	if world.building_system != null:
 		world.building_system.set_buildings(
 			world.placed_buildings
 		)
 
+	# به‌روزرسانی نمایش شهر
 	world._refresh_building_visuals()
 	world._update_treasury_label()
 	world.update()
