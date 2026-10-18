@@ -103,3 +103,16 @@ func update_treasury_label():
 	treasury_label.text = "Money: $" + str(
 		world.city_treasury.get_balance()
 	)
+	
+func show_land_purchase_dialog(tiles_to_buy, total_price, balance):
+	if land_purchase_dialog == null:
+		return
+
+	land_purchase_dialog.dialog_text = (
+		"Buy land in this 2x2 area?\n"
+		+ "Tiles to buy: " + str(tiles_to_buy) + "\n"
+		+ "Total price: $" + str(total_price) + "\n"
+		+ "Current treasury: $" + str(balance)
+	)
+
+	land_purchase_dialog.popup_centered()

@@ -714,14 +714,11 @@ func _buy_selected_land():
 
 	pending_land_grid = grid_pos
 
-	land_purchase_dialog.dialog_text = (
-		"Buy land in this 2x2 area?\n"
-		+ "Tiles to buy: " + str(tiles_to_buy) + "\n"
-		+ "Total price: $" + str(total_price) + "\n"
-		+ "Current treasury: $" + str(city_treasury.get_balance())
-	)
-
-	land_purchase_dialog.popup_centered()
+	world_ui_controller.show_land_purchase_dialog(
+	tiles_to_buy,
+	total_price,
+	city_treasury.get_balance()
+)
 
 
 
