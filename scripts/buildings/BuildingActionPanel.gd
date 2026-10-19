@@ -22,25 +22,27 @@ func _ready():
 func _build_panel():
 	panel = PanelContainer.new()
 	panel.name = "BuildingActionPanel"
-	panel.rect_position = Vector2(20, 100)
-	panel.rect_min_size = Vector2(320, 0)
+	panel.rect_position = Vector2(20, 110)
+	panel.rect_min_size = Vector2(460, 0)
 	panel.visible = false
 	add_child(panel)
 
 	var layout = VBoxContainer.new()
-	layout.add_constant_override("separation", 12)
+	layout.add_constant_override("separation", 16)
 	panel.add_child(layout)
 
 	title_label = Label.new()
 	title_label.text = "Building Actions"
 	title_label.align = Label.ALIGN_CENTER
-	title_label.rect_min_size = Vector2(300, 48)
+	title_label.rect_min_size = Vector2(420, 68)
+	title_label.add_font_override("font", _make_font(30))
 	layout.add_child(title_label)
 
 	storage_info_label = Label.new()
 	storage_info_label.name = "StorageInfoLabel"
 	storage_info_label.autowrap = true
-	storage_info_label.rect_min_size = Vector2(300, 130)
+	storage_info_label.rect_min_size = Vector2(420, 180)
+	storage_info_label.add_font_override("font", _make_font(24))
 	storage_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	storage_info_label.visible = false
 	layout.add_child(storage_info_label)
@@ -58,10 +60,22 @@ func _build_panel():
 	close_button = _create_button(layout, "Close", 4)
 
 
+func _make_font(font_size):
+	var font = DynamicFont.new()
+	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
+
+	if ResourceLoader.exists(font_path):
+		font.font_data = load(font_path)
+
+	font.size = font_size
+	return font
+
+
 func _create_button(container, button_text, action_id):
 	var button = Button.new()
 	button.text = button_text
-	button.rect_min_size = Vector2(300, 76)
+	button.rect_min_size = Vector2(420, 88)
+	button.add_font_override("font", _make_font(25))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	container.add_child(button)
 	button.connect("pressed", self, "_on_action_button_pressed", [action_id])
@@ -71,7 +85,8 @@ func _create_button(container, button_text, action_id):
 func _create_market_button(container, button_text, resource_id):
 	var button = Button.new()
 	button.text = button_text
-	button.rect_min_size = Vector2(300, 64)
+	button.rect_min_size = Vector2(420, 80)
+	button.add_font_override("font", _make_font(24))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.visible = false
 	container.add_child(button)
@@ -165,6 +180,7 @@ func _on_action_button_pressed(action_id):
 	if action_id == 4:
 		hide_panel()
 		return
+
 	emit_signal("building_action_selected", action_id)
 
 

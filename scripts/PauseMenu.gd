@@ -1,3 +1,4 @@
+
 extends Control
 
 const SAVE_PATH = "user://zeka_city_save.json"
@@ -71,7 +72,8 @@ func _create_pause_overlay():
 	var title = Label.new()
 	title.text = "ZEKACITY"
 	title.align = Label.ALIGN_CENTER
-	title.rect_min_size = Vector2(0, 48)
+	title.rect_min_size = Vector2(0, 64)
+	title.add_font_override("font", _make_font(36))
 	layout.add_child(title)
 
 	var resume_button = _make_button("Resume")
@@ -102,7 +104,8 @@ func _create_pause_overlay():
 	status_label.text = ""
 	status_label.align = Label.ALIGN_CENTER
 	status_label.autowrap = true
-	status_label.rect_min_size = Vector2(0, 52)
+	status_label.rect_min_size = Vector2(0, 72)
+	status_label.add_font_override("font", _make_font(22))
 	layout.add_child(status_label)
 
 	_update_panel_position()
@@ -113,8 +116,8 @@ func _update_panel_position():
 		return
 
 	var viewport_size = get_viewport_rect().size
-	var panel_width = min(330.0, viewport_size.x - 32.0)
-	var panel_height = min(410.0, viewport_size.y - 32.0)
+	var panel_width = min(560.0, viewport_size.x - 24.0)
+	var panel_height = min(620.0, viewport_size.y - 24.0)
 
 	panel_width = max(240.0, panel_width)
 	panel_height = max(280.0, panel_height)
@@ -130,10 +133,22 @@ func _on_viewport_size_changed():
 	_update_panel_position()
 
 
+func _make_font(font_size):
+	var font = DynamicFont.new()
+	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
+
+	if ResourceLoader.exists(font_path):
+		font.font_data = load(font_path)
+
+	font.size = font_size
+	return font
+
+
 func _make_button(button_text):
 	var button = Button.new()
 	button.text = button_text
-	button.rect_min_size = Vector2(0, 58)
+	button.rect_min_size = Vector2(0, 82)
+	button.add_font_override("font", _make_font(28))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.focus_mode = Control.FOCUS_NONE
 	return button
@@ -152,6 +167,10 @@ func _create_restart_dialog():
 
 	restart_dialog.get_ok().text = "Create New City"
 	restart_dialog.get_cancel().text = "Cancel"
+	restart_dialog.get_ok().rect_min_size = Vector2(200, 64)
+	restart_dialog.get_cancel().rect_min_size = Vector2(160, 64)
+	restart_dialog.get_ok().add_font_override("font", _make_font(22))
+	restart_dialog.get_cancel().add_font_override("font", _make_font(22))
 	add_child(restart_dialog)
 
 	restart_dialog.connect(
@@ -180,7 +199,7 @@ func _on_resume_pressed():
 
 
 func _on_restart_pressed():
-	restart_dialog.popup_centered(Vector2(440, 250))
+	restart_dialog.popup_centered(Vector2(560, 320))
 
 
 func _on_restart_confirmed():

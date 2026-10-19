@@ -908,6 +908,7 @@ func _notification(what):
 
 
 
+
 func _setup_construction_button():
 	var ui = get_node_or_null("../UI")
 
@@ -929,23 +930,30 @@ func _setup_construction_button():
 	button.anchor_right = 1.0
 	button.anchor_bottom = 1.0
 
-	button.margin_left = -100.0
-	button.margin_top = -100.0
-	button.margin_right = -24.0
-	button.margin_bottom = -24.0
+	button.margin_left = -124.0
+	button.margin_top = -124.0
+	button.margin_right = -20.0
+	button.margin_bottom = -20.0
 
-	button.rect_min_size = Vector2(76, 76)
+	button.rect_min_size = Vector2(104, 104)
 
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.12, 0.48, 0.78, 0.96)
-	style.corner_radius_top_left = 18
-	style.corner_radius_top_right = 18
-	style.corner_radius_bottom_left = 18
-	style.corner_radius_bottom_right = 18
+	style.corner_radius_top_left = 24
+	style.corner_radius_top_right = 24
+	style.corner_radius_bottom_left = 24
+	style.corner_radius_bottom_right = 24
 
 	button.add_stylebox_override("normal", style)
 	button.add_stylebox_override("hover", style)
 	button.add_stylebox_override("pressed", style)
+
+	var hammer_font = DynamicFont.new()
+	var hammer_font_path = "res://assets/fonts/Roboto-Regular.ttf"
+	if ResourceLoader.exists(hammer_font_path):
+		hammer_font.font_data = load(hammer_font_path)
+	hammer_font.size = 28
+	button.add_font_override("font", hammer_font)
 
 	if not button.is_connected(
 		"pressed",
@@ -957,6 +965,7 @@ func _setup_construction_button():
 			self,
 			"_on_BuildHouseButton_pressed"
 		)
+
 
 func _on_BuildHouseButton_pressed():
 	var construction_ui = get_node_or_null(

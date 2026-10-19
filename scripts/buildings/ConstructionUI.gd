@@ -1,3 +1,4 @@
+
 extends Control
 
 # ZekaCity - ConstructionUI.gd
@@ -103,7 +104,6 @@ var building_names = {
 	"huge_warehouse": "Huge Storage"
 }
 
-# Temporary icon colors. Replace these with real textures later.
 var building_colors = {
 	"Houses": Color(0.25, 0.58, 0.88),
 	"Parks": Color(0.22, 0.65, 0.39),
@@ -157,22 +157,19 @@ func _ready():
 
 
 func _build_interface():
-	# Anchor the menu to the bottom-right of the viewport.
-	# Keep it above the hammer button.
-	anchor_left = 1.0
-	anchor_right = 1.0
+	anchor_left = 0.02
+	anchor_right = 0.98
 	anchor_top = 1.0
 	anchor_bottom = 1.0
 
-	margin_left = -624
-	margin_right = -24
-	margin_top = -352
-	margin_bottom = -112
+	margin_left = 0
+	margin_right = 0
+	margin_top = -390
+	margin_bottom = -18
 
-	rect_min_size = Vector2(600, 240)
+	rect_min_size = Vector2(0, 372)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Background panel.
 	var background = Panel.new()
 	background.name = "MenuBackground"
 	background.set_anchors_and_margins_preset(
@@ -200,28 +197,27 @@ func _build_interface():
 	main.set_anchors_and_margins_preset(
 		Control.PRESET_WIDE
 	)
-	main.margin_left = 10
-	main.margin_top = 8
-	main.margin_right = -10
-	main.margin_bottom = -8
-	main.add_constant_override("separation", 6)
+	main.margin_left = 14
+	main.margin_top = 12
+	main.margin_right = -14
+	main.margin_bottom = -12
+	main.add_constant_override("separation", 10)
 	add_child(main)
 
-	# Header.
 	var heading = Label.new()
 	heading.text = "BUILD YOUR CITY"
-	heading.rect_min_size = Vector2(0, 24)
+	heading.rect_min_size = Vector2(0, 42)
 	heading.align = Label.ALIGN_CENTER
+	heading.add_font_override("font", _make_font(30))
 	heading.add_color_override(
 		"font_color",
 		Color(0.88, 0.94, 1.0)
 	)
 	main.add_child(heading)
 
-	# Horizontal, scrollable category bar.
 	category_scroll = ScrollContainer.new()
 	category_scroll.name = "CategoryScroll"
-	category_scroll.rect_min_size = Vector2(0, 42)
+	category_scroll.rect_min_size = Vector2(0, 66)
 	category_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	category_scroll.scroll_horizontal_enabled = true
 	category_scroll.scroll_vertical_enabled = false
@@ -229,13 +225,14 @@ func _build_interface():
 
 	category_bar = HBoxContainer.new()
 	category_bar.name = "CategoryBar"
-	category_bar.add_constant_override("separation", 6)
+	category_bar.add_constant_override("separation", 10)
 	category_scroll.add_child(category_bar)
 
 	for category in categories.keys():
 		var button = Button.new()
 		button.text = category
-		button.rect_min_size = Vector2(104, 36)
+		button.rect_min_size = Vector2(150, 58)
+		button.add_font_override("font", _make_font(23))
 		button.focus_mode = Control.FOCUS_NONE
 
 		button.connect(
@@ -248,10 +245,9 @@ func _build_interface():
 		category_bar.add_child(button)
 		category_buttons[category] = button
 
-	# Horizontal, scrollable building cards.
 	building_scroll = ScrollContainer.new()
 	building_scroll.name = "BuildingScroll"
-	building_scroll.rect_min_size = Vector2(0, 112)
+	building_scroll.rect_min_size = Vector2(0, 154)
 	building_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	building_scroll.scroll_horizontal_enabled = true
 	building_scroll.scroll_vertical_enabled = false
@@ -259,20 +255,20 @@ func _build_interface():
 
 	building_bar = HBoxContainer.new()
 	building_bar.name = "BuildingBar"
-	building_bar.add_constant_override("separation", 8)
+	building_bar.add_constant_override("separation", 12)
 	building_scroll.add_child(building_bar)
 
-	# Footer.
 	var footer = HBoxContainer.new()
 	footer.name = "Footer"
-	footer.rect_min_size = Vector2(0, 36)
-	footer.add_constant_override("separation", 8)
+	footer.rect_min_size = Vector2(0, 64)
+	footer.add_constant_override("separation", 12)
 	main.add_child(footer)
 
 	selected_label = Label.new()
 	selected_label.text = "Select a building"
 	selected_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	selected_label.valign = Label.VALIGN_CENTER
+	selected_label.add_font_override("font", _make_font(22))
 	selected_label.add_color_override(
 		"font_color",
 		Color(0.85, 0.91, 1.0)
@@ -281,7 +277,8 @@ func _build_interface():
 
 	var cancel_button = Button.new()
 	cancel_button.text = "CANCEL"
-	cancel_button.rect_min_size = Vector2(76, 32)
+	cancel_button.rect_min_size = Vector2(120, 56)
+	cancel_button.add_font_override("font", _make_font(22))
 	cancel_button.focus_mode = Control.FOCUS_NONE
 	cancel_button.connect(
 		"pressed",
@@ -292,7 +289,8 @@ func _build_interface():
 
 	confirm_button = Button.new()
 	confirm_button.text = "BUILD"
-	confirm_button.rect_min_size = Vector2(82, 32)
+	confirm_button.rect_min_size = Vector2(132, 56)
+	confirm_button.add_font_override("font", _make_font(22))
 	confirm_button.focus_mode = Control.FOCUS_NONE
 	confirm_button.disabled = true
 	confirm_button.connect(
@@ -316,7 +314,6 @@ func _on_category_pressed(category):
 	_refresh_building_cards()
 	_update_category_buttons()
 
-	# Return the building list to its beginning.
 	building_scroll.scroll_horizontal = 0
 
 
@@ -339,13 +336,12 @@ func _refresh_building_cards():
 	for building_id in items:
 		var card = VBoxContainer.new()
 		card.name = building_id + "_Card"
-		card.rect_min_size = Vector2(104, 104)
-		card.add_constant_override("separation", 4)
+		card.rect_min_size = Vector2(148, 144)
+		card.add_constant_override("separation", 6)
 		building_bar.add_child(card)
 
-		# Temporary icon panel with a short label.
 		var icon_panel = Panel.new()
-		icon_panel.rect_min_size = Vector2(0, 48)
+		icon_panel.rect_min_size = Vector2(0, 66)
 		card.add_child(icon_panel)
 
 		var icon_style = StyleBoxFlat.new()
@@ -372,7 +368,7 @@ func _refresh_building_cards():
 		)
 		icon_label.add_font_override(
 			"font",
-			_make_font(16)
+			_make_font(25)
 		)
 		icon_panel.add_child(icon_label)
 
@@ -381,7 +377,8 @@ func _refresh_building_cards():
 			building_id,
 			building_id.replace("_", " ").capitalize()
 		)
-		building_button.rect_min_size = Vector2(104, 48)
+		building_button.rect_min_size = Vector2(148, 70)
+		building_button.add_font_override("font", _make_font(19))
 		building_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		building_button.focus_mode = Control.FOCUS_NONE
 		building_button.connect(
@@ -429,7 +426,6 @@ func _update_category_buttons():
 
 func _make_font(font_size):
 	var font = DynamicFont.new()
-
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
 	if ResourceLoader.exists(font_path):

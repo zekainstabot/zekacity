@@ -39,12 +39,20 @@ func _create_treasury_label():
 	)
 	treasury_label.anchor_left = 1.0
 	treasury_label.anchor_right = 1.0
-	treasury_label.margin_left = -380
+	treasury_label.margin_left = -460
 	treasury_label.margin_right = -20
-	treasury_label.margin_top = 15
-	treasury_label.margin_bottom = 75
+	treasury_label.margin_top = 18
+	treasury_label.margin_bottom = 98
 	treasury_label.align = Label.ALIGN_LEFT
 	treasury_label.valign = Label.VALIGN_CENTER
+
+	var money_font = DynamicFont.new()
+	var money_font_path = "res://assets/fonts/Roboto-Regular.ttf"
+	if ResourceLoader.exists(money_font_path):
+		money_font.font_data = load(money_font_path)
+	money_font.size = 28
+	treasury_label.add_font_override("font", money_font)
+
 	treasury_label.add_color_override(
 		"font_color",
 		Color(1, 1, 0.3, 1)
@@ -61,14 +69,14 @@ func _create_buy_land_button():
 	buy_land_button.text = ""
 	buy_land_button.icon = load("res://land.png")
 	buy_land_button.expand_icon = false
-	buy_land_button.rect_min_size = Vector2(76, 76)
+	buy_land_button.rect_min_size = Vector2(104, 104)
 	buy_land_button.visible = false
 	buy_land_button.anchor_left = 1.0
 	buy_land_button.anchor_right = 1.0
-	buy_land_button.margin_left = -185
-	buy_land_button.margin_right = -32
-	buy_land_button.margin_top = 55
-	buy_land_button.margin_bottom = 119
+	buy_land_button.margin_left = -224
+	buy_land_button.margin_right = -24
+	buy_land_button.margin_top = 112
+	buy_land_button.margin_bottom = 208
 
 	ui.add_child(buy_land_button)
 	buy_land_button.connect(
@@ -93,6 +101,7 @@ func _create_land_purchase_dialog():
 		"_confirm_land_purchase"
 	)
 
+
 func update_treasury_label():
 	if world == null or treasury_label == null:
 		return
@@ -103,7 +112,8 @@ func update_treasury_label():
 	treasury_label.text = "Money: $" + str(
 		world.city_treasury.get_balance()
 	)
-	
+
+
 func show_land_purchase_dialog(tiles_to_buy, total_price, balance):
 	if land_purchase_dialog == null:
 		return
