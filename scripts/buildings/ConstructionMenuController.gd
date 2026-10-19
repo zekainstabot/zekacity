@@ -88,6 +88,10 @@ func initialize(world_node, submenu_node):
 	world = world_node
 	submenu_menu = submenu_node
 
+	if submenu_menu == null:
+		push_error("ConstructionMenuController: BuildingSubmenu NOT FOUND")
+		return
+
 	if not submenu_menu.is_connected(
 		"id_pressed",
 		self,
@@ -102,15 +106,17 @@ func initialize(world_node, submenu_node):
 
 func on_build_button_pressed():
 	if world == null:
+		push_error("ConstructionMenuController: World NOT FOUND")
 		return
 
 	var menu = world.get_node_or_null("../UI/ConstructionMenu")
 
 	if menu == null:
-		push_error("ConstructionMenu NOT FOUND")
+		push_error("ConstructionMenuController: ConstructionMenu NOT FOUND")
 		return
 
 	menu.clear()
+
 	menu.add_item("Houses", 100)
 	menu.add_item("Roads", 101)
 	menu.add_item("Parks and Recreation", 102)
@@ -124,8 +130,10 @@ func on_build_button_pressed():
 
 	menu.rect_min_size = Vector2(360, 500)
 	menu.rect_size = Vector2(360, 500)
+
 	menu.add_constant_override("vseparation", 18)
 	menu.add_constant_override("hseparation", 12)
+
 	menu.popup()
 
 
@@ -138,7 +146,7 @@ func on_category_selected(id):
 		return
 
 	if submenu_menu == null:
-		push_error("BuildingSubmenu NOT FOUND")
+		push_error("ConstructionMenuController: BuildingSubmenu NOT FOUND")
 		return
 
 	submenu_menu.clear()
@@ -158,7 +166,7 @@ func on_category_selected(id):
 		return
 
 	if not category_buildings.has(id):
-		push_error("UNKNOWN CATEGORY ID: " + str(id))
+		push_error("ConstructionMenuController: UNKNOWN CATEGORY ID: " + str(id))
 		return
 
 	var items = category_buildings[id]["items"]
@@ -180,10 +188,15 @@ func on_category_selected(id):
 
 
 func _show_submenu():
+	if submenu_menu == null or world == null:
+		return
+
 	submenu_menu.rect_min_size = Vector2(320, 100)
 	submenu_menu.rect_size = Vector2(320, 100)
+
 	submenu_menu.add_constant_override("vseparation", 18)
 	submenu_menu.add_constant_override("hseparation", 12)
+
 	submenu_menu.rect_position = world.get_global_mouse_position()
 	submenu_menu.popup()
 
@@ -217,7 +230,7 @@ func _on_SubmenuMenu_id_pressed(id):
 		return
 
 	if not menu_building_ids.has(id):
-		push_error("UNKNOWN SUBMENU ID: " + str(id))
+		push_error("ConstructionMenuController: UNKNOWN SUBMENU ID: " + str(id))
 		return
 
 	var building_id = menu_building_ids[id]

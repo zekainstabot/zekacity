@@ -192,7 +192,14 @@ func _ready():
 	if ui == null:
 		ui = get_node_or_null("/root/main/UI")
 
+	if ui == null:
+		push_error("UI node NOT FOUND in World.gd")
+		return
+
 	var ui_elements = world_ui_controller.initialize(self, ui)
+
+# بعد از آماده‌شدن UI، دکمه ساخت را تنظیم کن.
+	_setup_construction_button()
 	land_purchase_controller.initialize(self)
 
 	treasury_label = ui_elements.get("treasury_label")
@@ -233,6 +240,28 @@ func _ready():
 		self,
 		submenu_menu
 	)
+	
+	
+
+	var construction_layer = CanvasLayer.new()
+	construction_layer.name = "ConstructionLayer"
+	construction_layer.layer = 10
+	add_child(construction_layer)
+
+	var construction_ui = load(
+	"res://scripts/buildings/ConstructionUI.gd"
+	).new()
+
+	construction_ui.name = "ConstructionUI"
+	construction_layer.add_child(construction_ui)
+
+
+	construction_ui.connect(
+		"building_confirmed",
+		self,
+		"_on_construction_ui_building_confirmed"
+	)
+
 
 	building_system = get_node_or_null("../BuildingSystem")
 
@@ -501,10 +530,6 @@ func _draw_building(building_id, grid_pos, center):
 # =========================================
 # CONSTRUCTION MENU
 # =========================================
-
-func _on_BuildHouseButton_pressed():
-	construction_menu_controller.on_build_button_pressed()
-
 
 func _on_ConstructionMenu_id_pressed(id):
 	construction_menu_controller.on_category_selected(id)
@@ -880,3 +905,76 @@ func _notification(what):
 	if what == NOTIFICATION_WM_QUIT_REQUEST:
 		if save_system != null:
 			save_system.save_world(self)
+
+
+
+func _setup_construction_button():
+	var ui = get_node_or_null("../UI")
+
+	if ui == null:
+		ui = get_node_or_null("/root/main/UI")
+
+	if ui == null:
+		push_error("UI node NOT FOUND")
+		return
+
+	var button = ui.get_node_or_null("ConstructionButton")
+
+	if button == null:
+		push_error("ConstructionButton NOT FOUND inside UI")
+		return
+
+	button.anchor_left = 1.0
+	button.anchor_top = 1.0
+	button.anchor_right = 1.0
+	button.anchor_bottom = 1.0
+
+	button.margin_left = -100.0
+	button.margin_top = -100.0
+	button.margin_right = -24.0
+	button.margin_bottom = -24.0
+
+	button.rect_min_size = Vector2(76, 76)
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.48, 0.78, 0.96)
+	style.corner_radius_top_left = 18
+	style.corner_radius_top_right = 18
+	style.corner_radius_bottom_left = 18
+	style.corner_radius_bottom_right = 18
+
+	button.add_stylebox_override("normal", style)
+	button.add_stylebox_override("hover", style)
+	button.add_stylebox_override("pressed", style)
+
+	if not button.is_connected(
+		"pressed",
+		self,
+		"_on_BuildHouseButton_pressed"
+	):
+		button.connect(
+			"pressed",
+			self,
+			"_on_BuildHouseButton_pressed"
+		)
+
+func _on_BuildHouseButton_pressed():
+	var construction_ui = get_node_or_null(
+		"ConstructionLayer/ConstructionUI"
+	)
+
+	if construction_ui != null:
+		construction_ui.open_menu()
+	else:
+		push_error("ConstructionUI not found inside ConstructionLayer")
+
+
+func _on_construction_ui_building_confirmed(building_id):
+	selected_building_for_placement = building_id
+	road_placement_direction = -1
+
+	print(
+		"BUILDING SELECTED: ",
+		building_id,
+		" | Tap a valid tile to place it."
+	)
