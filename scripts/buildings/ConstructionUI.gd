@@ -20,6 +20,12 @@ var building_bar = null
 var selected_label = null
 var confirm_button = null
 
+# Compact menu settings
+const MENU_HEIGHT = 210
+const SIDE_MARGIN = 8
+const TOP_MARGIN = 8
+const BOTTOM_MARGIN = 8
+
 var categories = {
 	"Houses": [
 		"small_house",
@@ -50,6 +56,10 @@ var categories = {
 		"shopping_mall",
 		"factory",
 		"mineral_market"
+	],
+	"Mining": [
+		"stone_mine",
+		"iron_mine"
 	],
 	"Utilities": [
 		"water_tower",
@@ -91,6 +101,8 @@ var building_names = {
 	"shopping_mall": "Shopping Mall",
 	"factory": "Factory",
 	"mineral_market": "Mineral Market",
+	"stone_mine": "Stone Mine",
+	"iron_mine": "Iron Mine",
 	"water_tower": "Water Tower",
 	"power_station": "Power Station",
 	"sewage_plant": "Sewage Plant",
@@ -110,6 +122,7 @@ var building_colors = {
 	"Education": Color(0.75, 0.56, 0.22),
 	"Healthcare": Color(0.82, 0.30, 0.34),
 	"Business": Color(0.56, 0.40, 0.82),
+	"Mining": Color(0.62, 0.43, 0.25),
 	"Utilities": Color(0.20, 0.66, 0.70),
 	"Services": Color(0.80, 0.48, 0.25),
 	"Warehouses": Color(0.43, 0.51, 0.59)
@@ -136,6 +149,8 @@ var building_icons = {
 	"shopping_mall": "MALL",
 	"factory": "IND",
 	"mineral_market": "ORE",
+	"stone_mine": "STONE",
+	"iron_mine": "IRON",
 	"water_tower": "H2O",
 	"power_station": "PWR",
 	"sewage_plant": "WTR",
@@ -157,67 +172,65 @@ func _ready():
 
 
 func _build_interface():
-	anchor_left = 0.02
-	anchor_right = 0.98
+	# Anchor the menu to the bottom of the screen.
+	anchor_left = 1.0
+	anchor_right = 1.0
 	anchor_top = 1.0
 	anchor_bottom = 1.0
 
-	margin_left = 0
-	margin_right = 0
-	margin_top = -390
-	margin_bottom = -18
+	margin_left = -400
+	margin_right = -9
+	margin_top = -MENU_HEIGHT
+	margin_bottom = -BOTTOM_MARGIN
 
-	rect_min_size = Vector2(0, 372)
+	rect_min_size = Vector2(0, MENU_HEIGHT - BOTTOM_MARGIN)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
+	# Background panel
 	var background = Panel.new()
 	background.name = "MenuBackground"
-	background.set_anchors_and_margins_preset(
-		Control.PRESET_WIDE
-	)
+	background.set_anchors_and_margins_preset(Control.PRESET_WIDE)
 
 	var panel_style = StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.055, 0.085, 0.12, 0.98)
 	panel_style.border_color = Color(0.20, 0.38, 0.52, 1.0)
-	panel_style.border_width_left = 2
-	panel_style.border_width_right = 2
-	panel_style.border_width_top = 2
-	panel_style.border_width_bottom = 2
-	panel_style.corner_radius_top_left = 12
-	panel_style.corner_radius_top_right = 12
-	panel_style.corner_radius_bottom_left = 12
-	panel_style.corner_radius_bottom_right = 12
+	panel_style.border_width_left = 1
+	panel_style.border_width_right = 1
+	panel_style.border_width_top = 1
+	panel_style.border_width_bottom = 1
+	panel_style.corner_radius_top_left = 8
+	panel_style.corner_radius_top_right = 8
+	panel_style.corner_radius_bottom_left = 8
+	panel_style.corner_radius_bottom_right = 8
 
 	background.add_stylebox_override("panel", panel_style)
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(background)
 
+	# Main vertical layout
 	var main = VBoxContainer.new()
 	main.name = "MainLayout"
-	main.set_anchors_and_margins_preset(
-		Control.PRESET_WIDE
-	)
-	main.margin_left = 14
-	main.margin_top = 12
-	main.margin_right = -14
-	main.margin_bottom = -12
-	main.add_constant_override("separation", 10)
+	main.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	main.margin_left = 8
+	main.margin_top = TOP_MARGIN
+	main.margin_right = -8
+	main.margin_bottom = -8
+	main.add_constant_override("separation", 3)
 	add_child(main)
 
+	# Small heading
 	var heading = Label.new()
 	heading.text = "BUILD YOUR CITY"
-	heading.rect_min_size = Vector2(0, 42)
+	heading.rect_min_size = Vector2(0, 20)
 	heading.align = Label.ALIGN_CENTER
-	heading.add_font_override("font", _make_font(30))
-	heading.add_color_override(
-		"font_color",
-		Color(0.88, 0.94, 1.0)
-	)
+	heading.add_font_override("font", _make_font(12))
+	heading.add_color_override("font_color", Color(0.88, 0.94, 1.0))
 	main.add_child(heading)
 
+	# Horizontal category scrolling
 	category_scroll = ScrollContainer.new()
 	category_scroll.name = "CategoryScroll"
-	category_scroll.rect_min_size = Vector2(0, 66)
+	category_scroll.rect_min_size = Vector2(0, 34)
 	category_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	category_scroll.scroll_horizontal_enabled = true
 	category_scroll.scroll_vertical_enabled = false
@@ -225,14 +238,14 @@ func _build_interface():
 
 	category_bar = HBoxContainer.new()
 	category_bar.name = "CategoryBar"
-	category_bar.add_constant_override("separation", 10)
+	category_bar.add_constant_override("separation", 4)
 	category_scroll.add_child(category_bar)
 
 	for category in categories.keys():
 		var button = Button.new()
 		button.text = category
-		button.rect_min_size = Vector2(150, 58)
-		button.add_font_override("font", _make_font(23))
+		button.rect_min_size = Vector2(88, 28)
+		button.add_font_override("font", _make_font(12))
 		button.focus_mode = Control.FOCUS_NONE
 
 		button.connect(
@@ -245,9 +258,10 @@ func _build_interface():
 		category_bar.add_child(button)
 		category_buttons[category] = button
 
+	# Horizontal building-card scrolling
 	building_scroll = ScrollContainer.new()
 	building_scroll.name = "BuildingScroll"
-	building_scroll.rect_min_size = Vector2(0, 154)
+	building_scroll.rect_min_size = Vector2(0, 91)
 	building_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	building_scroll.scroll_horizontal_enabled = true
 	building_scroll.scroll_vertical_enabled = false
@@ -255,20 +269,21 @@ func _build_interface():
 
 	building_bar = HBoxContainer.new()
 	building_bar.name = "BuildingBar"
-	building_bar.add_constant_override("separation", 12)
+	building_bar.add_constant_override("separation", 5)
 	building_scroll.add_child(building_bar)
 
+	# Footer
 	var footer = HBoxContainer.new()
 	footer.name = "Footer"
-	footer.rect_min_size = Vector2(0, 64)
-	footer.add_constant_override("separation", 12)
+	footer.rect_min_size = Vector2(0, 34)
+	footer.add_constant_override("separation", 5)
 	main.add_child(footer)
 
 	selected_label = Label.new()
 	selected_label.text = "Select a building"
 	selected_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	selected_label.valign = Label.VALIGN_CENTER
-	selected_label.add_font_override("font", _make_font(22))
+	selected_label.add_font_override("font", _make_font(11))
 	selected_label.add_color_override(
 		"font_color",
 		Color(0.85, 0.91, 1.0)
@@ -277,8 +292,8 @@ func _build_interface():
 
 	var cancel_button = Button.new()
 	cancel_button.text = "CANCEL"
-	cancel_button.rect_min_size = Vector2(120, 56)
-	cancel_button.add_font_override("font", _make_font(22))
+	cancel_button.rect_min_size = Vector2(65, 30)
+	cancel_button.add_font_override("font", _make_font(11))
 	cancel_button.focus_mode = Control.FOCUS_NONE
 	cancel_button.connect(
 		"pressed",
@@ -289,8 +304,8 @@ func _build_interface():
 
 	confirm_button = Button.new()
 	confirm_button.text = "BUILD"
-	confirm_button.rect_min_size = Vector2(132, 56)
-	confirm_button.add_font_override("font", _make_font(22))
+	confirm_button.rect_min_size = Vector2(72, 30)
+	confirm_button.add_font_override("font", _make_font(11))
 	confirm_button.focus_mode = Control.FOCUS_NONE
 	confirm_button.disabled = true
 	confirm_button.connect(
@@ -336,40 +351,29 @@ func _refresh_building_cards():
 	for building_id in items:
 		var card = VBoxContainer.new()
 		card.name = building_id + "_Card"
-		card.rect_min_size = Vector2(148, 144)
-		card.add_constant_override("separation", 6)
+		card.rect_min_size = Vector2(88, 82)
+		card.add_constant_override("separation", 2)
 		building_bar.add_child(card)
 
 		var icon_panel = Panel.new()
-		icon_panel.rect_min_size = Vector2(0, 66)
+		icon_panel.rect_min_size = Vector2(0, 34)
 		card.add_child(icon_panel)
 
 		var icon_style = StyleBoxFlat.new()
 		icon_style.bg_color = icon_color
-		icon_style.corner_radius_top_left = 8
-		icon_style.corner_radius_top_right = 8
-		icon_style.corner_radius_bottom_left = 8
-		icon_style.corner_radius_bottom_right = 8
+		icon_style.corner_radius_top_left = 5
+		icon_style.corner_radius_top_right = 5
+		icon_style.corner_radius_bottom_left = 5
+		icon_style.corner_radius_bottom_right = 5
 		icon_panel.add_stylebox_override("panel", icon_style)
 
 		var icon_label = Label.new()
-		icon_label.text = building_icons.get(
-			building_id,
-			"?"
-		)
+		icon_label.text = building_icons.get(building_id, "?")
 		icon_label.align = Label.ALIGN_CENTER
 		icon_label.valign = Label.VALIGN_CENTER
-		icon_label.set_anchors_and_margins_preset(
-			Control.PRESET_WIDE
-		)
-		icon_label.add_color_override(
-			"font_color",
-			Color(1, 1, 1)
-		)
-		icon_label.add_font_override(
-			"font",
-			_make_font(25)
-		)
+		icon_label.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+		icon_label.add_color_override("font_color", Color(1, 1, 1))
+		icon_label.add_font_override("font", _make_font(10))
 		icon_panel.add_child(icon_label)
 
 		var building_button = Button.new()
@@ -377,8 +381,8 @@ func _refresh_building_cards():
 			building_id,
 			building_id.replace("_", " ").capitalize()
 		)
-		building_button.rect_min_size = Vector2(148, 70)
-		building_button.add_font_override("font", _make_font(19))
+		building_button.rect_min_size = Vector2(88, 32)
+		building_button.add_font_override("font", _make_font(10))
 		building_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		building_button.focus_mode = Control.FOCUS_NONE
 		building_button.connect(
@@ -435,15 +439,12 @@ func _make_font(font_size):
 	font.size = font_size
 	return font
 
+
 func _on_confirm_pressed():
 	if selected_building_id == "":
 		return
 
-	emit_signal(
-		"building_confirmed",
-		selected_building_id
-	)
-
+	emit_signal("building_confirmed", selected_building_id)
 	hide()
 
 
@@ -455,8 +456,12 @@ func _on_cancel_pressed():
 
 func open_menu():
 	selected_building_id = ""
-	selected_label.text = "Select a building"
-	confirm_button.disabled = true
+
+	if selected_label != null:
+		selected_label.text = "Select a building"
+
+	if confirm_button != null:
+		confirm_button.disabled = true
 
 	_refresh_building_cards()
 	_update_category_buttons()

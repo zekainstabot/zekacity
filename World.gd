@@ -980,7 +980,21 @@ func _on_BuildHouseButton_pressed():
 		push_error("ConstructionUI not found inside ConstructionLayer")
 
 
+
 func _on_construction_ui_building_confirmed(building_id):
+	if building_id == "stone_mine" or building_id == "iron_mine":
+		selected_building_for_placement = ""
+		road_placement_direction = -1
+
+		var resource = "stone" if building_id == "stone_mine" else "iron_ore"
+		set_meta("mine_placement_resource", resource)
+
+		print("Mine selected: Click its mountain mining point.")
+		return
+
+	if has_meta("mine_placement_resource"):
+		remove_meta("mine_placement_resource")
+
 	selected_building_for_placement = building_id
 	road_placement_direction = -1
 
