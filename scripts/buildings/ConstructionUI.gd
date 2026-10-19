@@ -425,15 +425,15 @@ func _update_category_buttons():
 
 
 func _make_font(font_size):
-	var font = DynamicFont.new()
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
-	if ResourceLoader.exists(font_path):
-		font.font_data = load(font_path)
+	if not ResourceLoader.exists(font_path):
+		return null
 
+	var font = DynamicFont.new()
+	font.font_data = load(font_path)
 	font.size = font_size
 	return font
-
 
 func _on_confirm_pressed():
 	if selected_building_id == "":

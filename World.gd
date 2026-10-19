@@ -197,6 +197,8 @@ func _ready():
 		return
 
 	var ui_elements = world_ui_controller.initialize(self, ui)
+	print("DEBUG UI: ", ui)
+	print("DEBUG MONEY LABEL: ", ui_elements.get("treasury_label"))
 
 # بعد از آماده‌شدن UI، دکمه ساخت را تنظیم کن.
 	_setup_construction_button()

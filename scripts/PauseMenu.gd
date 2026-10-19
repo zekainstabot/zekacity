@@ -134,15 +134,17 @@ func _on_viewport_size_changed():
 
 
 func _make_font(font_size):
-	var font = DynamicFont.new()
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
-	if ResourceLoader.exists(font_path):
-		font.font_data = load(font_path)
+	if not ResourceLoader.exists(font_path):
+		push_warning("Roboto font not found: " + font_path)
+		return get_font("font")
 
+	var font = DynamicFont.new()
+	font.font_data = load(font_path)
 	font.size = font_size
-	return font
 
+	return font
 
 func _make_button(button_text):
 	var button = Button.new()
