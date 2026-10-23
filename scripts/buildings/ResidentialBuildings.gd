@@ -5,6 +5,10 @@ extends Reference
 # Godot 3.6
 # =========================================
 
+const TILE_HALF_WIDTH = 32.0
+const TILE_HALF_HEIGHT = 16.0
+
+
 func draw_building(canvas, building_id, pos):
 	var scale_factor = 1.0
 
@@ -54,60 +58,86 @@ func draw_building(canvas, building_id, pos):
 func _draw_house(canvas, pos, style):
 	var wall_color = Color(0.88, 0.72, 0.50)
 	var roof_color = Color(0.65, 0.22, 0.18)
-	var height = 38
+	var height = 38.0
 
 	if style == 1:
 		wall_color = Color(0.82, 0.83, 0.78)
 		roof_color = Color(0.25, 0.38, 0.60)
-		height = 48
+		height = 48.0
 
-	# سمت چپ خانه
+	# گوشه‌های پایهٔ لوزی:
+	# عقب: (0, -16)
+	# راست: (32, 0)
+	# جلو: (0, 16)
+	# چپ: (-32, 0)
+
+	var back = pos + Vector2(0, -16)
+	var right = pos + Vector2(32, 0)
+	var front = pos + Vector2(0, 16)
+	var left = pos + Vector2(-32, 0)
+
+	var back_top = back + Vector2(0, -height)
+	var right_top = right + Vector2(0, -height)
+	var front_top = front + Vector2(0, -height)
+	var left_top = left + Vector2(0, -height)
+
+	# دیوار چپ: از گوشهٔ چپ تا عقب و بالای آن‌ها
 	canvas.draw_colored_polygon(
 		PoolVector2Array([
-			pos + Vector2(-32, -4),
-			pos + Vector2(0, 12),
-			pos + Vector2(0, 12 - height),
-			pos + Vector2(-32, -height - 4)
+			left,
+			front,
+			front_top,
+			left_top
 		]),
 		wall_color.darkened(0.18)
 	)
 
-	# سمت راست خانه
+	# دیوار راست: از جلو تا راست و بالای آن‌ها
 	canvas.draw_colored_polygon(
 		PoolVector2Array([
-			pos + Vector2(0, 12),
-			pos + Vector2(32, -4),
-			pos + Vector2(32, -height - 4),
-			pos + Vector2(0, 12 - height)
+			front,
+			right,
+			right_top,
+			front_top
 		]),
 		wall_color
 	)
 
-	# سقف
+	# سقف: لبه‌ها دقیقاً با گوشه‌های بالای دیوار هماهنگ‌اند
 	canvas.draw_colored_polygon(
 		PoolVector2Array([
-			pos + Vector2(-38, -height - 4),
-			pos + Vector2(0, -height - 24),
-			pos + Vector2(38, -height - 4),
-			pos + Vector2(0, -height + 14)
+			left_top,
+			back_top,
+			right_top,
+			front_top
 		]),
 		roof_color
 	)
 
-	# در
+	# در روی نمای جلویی
 	canvas.draw_rect(
-		Rect2(pos + Vector2(-7, -20), Vector2(12, 24)),
+		Rect2(
+			pos + Vector2(-6, -16),
+			Vector2(12, 24)
+		),
 		Color(0.30, 0.19, 0.12)
 	)
 
-	# پنجره‌ها
+	# پنجره‌های دیوار چپ
 	canvas.draw_rect(
-		Rect2(pos + Vector2(-25, -height + 5), Vector2(12, 12)),
+		Rect2(
+			pos + Vector2(-25, -height + 4),
+			Vector2(10, 10)
+		),
 		Color(0.55, 0.82, 0.95)
 	)
 
+	# پنجرهٔ دیوار راست
 	canvas.draw_rect(
-		Rect2(pos + Vector2(12, -height + 5), Vector2(12, 12)),
+		Rect2(
+			pos + Vector2(12, -height + 4),
+			Vector2(10, 10)
+		),
 		Color(0.55, 0.82, 0.95)
 	)
 
@@ -117,17 +147,29 @@ func _draw_house(canvas, pos, style):
 # =========================================
 
 func _draw_apartment(canvas, pos, level):
-	var height = 45 + level * 20
-	var width = 48 + level * 4
-	var half_width = float(width) / 2.0
+	var height = 45.0 + level * 20.0
+	var width = 48.0 + level * 4.0
+	var half_width = width / 2.0
 	var wall = Color(0.72, 0.76, 0.81)
+
+	# گوشه‌های پایهٔ ساختمان
+	var back = pos + Vector2(0, -16)
+	var right = pos + Vector2(half_width, 0)
+	var front = pos + Vector2(0, 16)
+	var left = pos + Vector2(-half_width, 0)
+
+	# گوشه‌های بالای دیوارها
+	var back_top = back + Vector2(0, -height)
+	var right_top = right + Vector2(0, -height)
+	var front_top = front + Vector2(0, -height)
+	var left_top = left + Vector2(0, -height)
 
 	# نمای چپ
 	var left_face = PoolVector2Array([
-		pos + Vector2(-half_width, 0),
-		pos + Vector2(0, 18),
-		pos + Vector2(0, 18 - height),
-		pos + Vector2(-half_width, -height + 2)
+		left,
+		front,
+		front_top,
+		left_top
 	])
 
 	canvas.draw_colored_polygon(
@@ -137,10 +179,10 @@ func _draw_apartment(canvas, pos, level):
 
 	# نمای راست
 	var right_face = PoolVector2Array([
-		pos + Vector2(0, 18),
-		pos + Vector2(half_width, 0),
-		pos + Vector2(half_width, -height),
-		pos + Vector2(0, 18 - height)
+		front,
+		right,
+		right_top,
+		front_top
 	])
 
 	canvas.draw_colored_polygon(
@@ -150,10 +192,10 @@ func _draw_apartment(canvas, pos, level):
 
 	# سقف
 	var roof = PoolVector2Array([
-		pos + Vector2(-half_width, -height + 2),
-		pos + Vector2(0, -height - 10),
-		pos + Vector2(half_width, -height),
-		pos + Vector2(0, 18 - height)
+		left_top,
+		back_top,
+		right_top,
+		front_top
 	])
 
 	canvas.draw_colored_polygon(

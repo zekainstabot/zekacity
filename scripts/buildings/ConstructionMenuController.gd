@@ -1,4 +1,3 @@
-
 extends Reference
 
 # ZekaCity - ConstructionMenuController.gd
@@ -88,6 +87,8 @@ func initialize(world_node, submenu_node):
 	world = world_node
 	submenu_menu = submenu_node
 
+	print("ConstructionMenuController INITIALIZED")
+
 	if submenu_menu == null:
 		push_error("ConstructionMenuController: BuildingSubmenu NOT FOUND")
 		return
@@ -105,6 +106,8 @@ func initialize(world_node, submenu_node):
 
 
 func on_build_button_pressed():
+	print("BUILD MENU CONTROLLER CALLED")
+
 	if world == null:
 		push_error("ConstructionMenuController: World NOT FOUND")
 		return
@@ -114,6 +117,9 @@ func on_build_button_pressed():
 	if menu == null:
 		push_error("ConstructionMenuController: ConstructionMenu NOT FOUND")
 		return
+
+	print("MENU NODE TYPE: ", menu.get_class())
+	print("MENU PATH: ", menu.get_path())
 
 	menu.clear()
 
@@ -128,13 +134,21 @@ func on_build_button_pressed():
 	menu.add_item("Mining", 109)
 	menu.add_item("Warehouses", 110)
 
-	menu.rect_min_size = Vector2(360, 500)
-	menu.rect_size = Vector2(360, 500)
+	menu.add_constant_override("vseparation", 22)
+	menu.add_constant_override("hseparation", 15)
 
-	menu.add_constant_override("vseparation", 18)
-	menu.add_constant_override("hseparation", 12)
+	# آزمایش موقعیت و اندازه
+	# توجه: PopupMenu ممکن است این ابعاد را نادیده بگیرد.
+	menu.rect_min_size = Vector2(500, 650)
+	menu.rect_size = Vector2(500, 650)
 
+	print("REQUESTED MENU SIZE: 500 x 650")
+	print("MENU RECT BEFORE POPUP: ", menu.get_rect())
+
+	# باز کردن منو
 	menu.popup()
+
+	print("MENU POPUP CALLED")
 
 
 func on_category_selected(id):
@@ -166,7 +180,10 @@ func on_category_selected(id):
 		return
 
 	if not category_buildings.has(id):
-		push_error("ConstructionMenuController: UNKNOWN CATEGORY ID: " + str(id))
+		push_error(
+			"ConstructionMenuController: UNKNOWN CATEGORY ID: "
+			+ str(id)
+		)
 		return
 
 	var items = category_buildings[id]["items"]
@@ -191,13 +208,17 @@ func _show_submenu():
 	if submenu_menu == null or world == null:
 		return
 
+	submenu_menu.clear()
+
 	submenu_menu.rect_min_size = Vector2(320, 100)
 	submenu_menu.rect_size = Vector2(320, 100)
 
 	submenu_menu.add_constant_override("vseparation", 18)
 	submenu_menu.add_constant_override("hseparation", 12)
 
-	submenu_menu.rect_position = world.get_global_mouse_position()
+	var mouse_pos = world.get_global_mouse_position()
+
+	submenu_menu.rect_position = mouse_pos
 	submenu_menu.popup()
 
 
@@ -230,7 +251,10 @@ func _on_SubmenuMenu_id_pressed(id):
 		return
 
 	if not menu_building_ids.has(id):
-		push_error("ConstructionMenuController: UNKNOWN SUBMENU ID: " + str(id))
+		push_error(
+			"ConstructionMenuController: UNKNOWN SUBMENU ID: "
+			+ str(id)
+		)
 		return
 
 	var building_id = menu_building_ids[id]

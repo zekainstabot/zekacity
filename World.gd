@@ -184,6 +184,7 @@ var building_names = {
 # =========================================
 
 
+
 func _ready():
 	print("CITY TREASURY INITIALIZED: ", city_treasury.get_balance())
 
@@ -197,10 +198,10 @@ func _ready():
 		return
 
 	var ui_elements = world_ui_controller.initialize(self, ui)
+
 	print("DEBUG UI: ", ui)
 	print("DEBUG MONEY LABEL: ", ui_elements.get("treasury_label"))
 
-# بعد از آماده‌شدن UI، دکمه ساخت را تنظیم کن.
 	_setup_construction_button()
 	land_purchase_controller.initialize(self)
 
@@ -242,29 +243,49 @@ func _ready():
 		self,
 		submenu_menu
 	)
-	
-	
 
-	var construction_layer = CanvasLayer.new()
-	construction_layer.name = "ConstructionLayer"
-	construction_layer.layer = 10
-	add_child(construction_layer)
+	# Create ConstructionLayer only if it does not exist.
+	var construction_layer = get_node_or_null("ConstructionLayer")
 
-	var construction_ui = load(
-	"res://scripts/buildings/ConstructionUI.gd"
-	).new()
+	if construction_layer == null:
+		construction_layer = CanvasLayer.new()
+		construction_layer.name = "ConstructionLayer"
+		construction_layer.layer = 10
+		add_child(construction_layer)
 
-	construction_ui.name = "ConstructionUI"
-	construction_layer.add_child(construction_ui)
-
-
-	construction_ui.connect(
-		"building_confirmed",
-		self,
-		"_on_construction_ui_building_confirmed"
+	# Create ConstructionUI only if it does not exist.
+	var construction_ui = construction_layer.get_node_or_null(
+		"ConstructionUI"
 	)
 
+	if construction_ui == null:
+		var construction_script = load(
+			"res://scripts/buildings/ConstructionUI.gd"
+		)
 
+		if construction_script == null:
+			push_error("Cannot load ConstructionUI.gd")
+		else:
+			construction_ui = construction_script.new()
+			construction_ui.name = "ConstructionUI"
+			construction_layer.add_child(construction_ui)
+
+	# Connect the signal only once.
+	if construction_ui != null:
+		if not construction_ui.is_connected(
+			"building_confirmed",
+			self,
+			"_on_construction_ui_building_confirmed"
+		):
+			construction_ui.connect(
+				"building_confirmed",
+				self,
+				"_on_construction_ui_building_confirmed"
+			)
+	else:
+		push_error("ConstructionUI could not be created")
+
+	# Initialize the building system.
 	building_system = get_node_or_null("../BuildingSystem")
 
 	if building_system == null:
@@ -273,14 +294,15 @@ func _ready():
 		building_system.tile_width = tile_width
 		building_system.tile_height = tile_height
 		building_system.set_buildings(placed_buildings)
-		_refresh_building_visuals()
 
+	# Create the building visuals root.
 	building_visuals_root = Node2D.new()
 	building_visuals_root.name = "BuildingVisuals"
 	add_child(building_visuals_root)
 
 	_refresh_building_visuals()
 
+	# Create the building action panel.
 	building_action_panel = preload(
 		"res://scripts/buildings/BuildingActionPanel.gd"
 	).new()
@@ -300,6 +322,7 @@ func _ready():
 		"_on_market_sell_requested"
 	)
 
+	# Create the demolition confirmation dialog.
 	building_action_dialog = ConfirmationDialog.new()
 	building_action_dialog.name = "BuildingActionDialog"
 	building_action_dialog.rect_min_size = Vector2(420, 200)
@@ -311,7 +334,7 @@ func _ready():
 		"_confirm_building_demolition"
 	)
 
-	
+	# Create the citizen system.
 	citizen_system = load(
 		"res://scripts/citizens/CitizenSystem.gd"
 	).new()
@@ -322,6 +345,7 @@ func _ready():
 
 	update()
 
+	# Load the saved city.
 	var save_loaded = save_system.load_world(self)
 
 	if not save_loaded:

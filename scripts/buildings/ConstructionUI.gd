@@ -1,470 +1,281 @@
-
 extends Control
 
-# ZekaCity - ConstructionUI.gd
-# Godot 3.6
+const MENU_WIDTH = 560
+const MENU_HEIGHT = 310
+const CARD_WIDTH = 130
+const CARD_HEIGHT = 150
 
-signal building_confirmed(building_id)
-signal construction_cancelled
+var selected_category = "All"
+var selected_building_id = null
 
-var selected_category = "Houses"
-var selected_building_id = ""
+var buildings = [
+	{
+		"id": "house",
+		"name": "House",
+		"category": "Residential",
+		"icon": "🏠",
+		"cost": 100
+	},
+	{
+		"id": "shop",
+		"name": "Shop",
+		"category": "Commercial",
+		"icon": "🏪",
+		"cost": 200
+	},
+	{
+		"id": "factory",
+		"name": "Factory",
+		"category": "Industrial",
+		"icon": "🏭",
+		"cost": 350
+	},
+	{
+		"id": "park",
+		"name": "Park",
+		"category": "Nature",
+		"icon": "🌳",
+		"cost": 150
+	},
+	{
+		"id": "school",
+		"name": "School",
+		"category": "Education",
+		"icon": "🏫",
+		"cost": 250
+	}
+]
 
-var category_buttons = {}
-var building_buttons = {}
-
-var category_scroll = null
-var building_scroll = null
-var category_bar = null
-var building_bar = null
-var selected_label = null
-var confirm_button = null
-
-# Compact menu settings
-const MENU_HEIGHT = 210
-const SIDE_MARGIN = 8
-const TOP_MARGIN = 8
-const BOTTOM_MARGIN = 8
-
-var categories = {
-	"Houses": [
-		"small_house",
-		"normal_house",
-		"low_apartment",
-		"high_apartment",
-		"residential_tower"
-	],
-	"Parks": [
-		"small_park",
-		"playground",
-		"sports_center",
-		"cultural_center"
-	],
-	"Education": [
-		"school",
-		"university"
-	],
-	"Healthcare": [
-		"clinic",
-		"hospital"
-	],
-	"Business": [
-		"grocery_store",
-		"bakery",
-		"restaurant",
-		"office",
-		"shopping_mall",
-		"factory",
-		"mineral_market"
-	],
-	"Mining": [
-		"stone_mine",
-		"iron_mine"
-	],
-	"Utilities": [
-		"water_tower",
-		"power_station",
-		"sewage_plant",
-		"waste_facility"
-	],
-	"Services": [
-		"city_hall",
-		"police_station",
-		"fire_station"
-	],
-	"Warehouses": [
-		"small_warehouse",
-		"medium_warehouse",
-		"large_warehouse",
-		"huge_warehouse"
-	]
-}
-
-var building_names = {
-	"small_house": "Small House",
-	"normal_house": "House",
-	"low_apartment": "Low-rise Apt.",
-	"high_apartment": "High-rise Apt.",
-	"residential_tower": "Tower",
-	"small_park": "Small Park",
-	"playground": "Playground",
-	"sports_center": "Sports Center",
-	"cultural_center": "Culture Center",
-	"school": "School",
-	"university": "University",
-	"clinic": "Clinic",
-	"hospital": "Hospital",
-	"grocery_store": "Grocery",
-	"bakery": "Bakery",
-	"restaurant": "Restaurant",
-	"office": "Office",
-	"shopping_mall": "Shopping Mall",
-	"factory": "Factory",
-	"mineral_market": "Mineral Market",
-	"stone_mine": "Stone Mine",
-	"iron_mine": "Iron Mine",
-	"water_tower": "Water Tower",
-	"power_station": "Power Station",
-	"sewage_plant": "Sewage Plant",
-	"waste_facility": "Waste Facility",
-	"city_hall": "City Hall",
-	"police_station": "Police",
-	"fire_station": "Fire Station",
-	"small_warehouse": "Small Storage",
-	"medium_warehouse": "Medium Storage",
-	"large_warehouse": "Large Storage",
-	"huge_warehouse": "Huge Storage"
-}
-
-var building_colors = {
-	"Houses": Color(0.25, 0.58, 0.88),
-	"Parks": Color(0.22, 0.65, 0.39),
-	"Education": Color(0.75, 0.56, 0.22),
-	"Healthcare": Color(0.82, 0.30, 0.34),
-	"Business": Color(0.56, 0.40, 0.82),
-	"Mining": Color(0.62, 0.43, 0.25),
-	"Utilities": Color(0.20, 0.66, 0.70),
-	"Services": Color(0.80, 0.48, 0.25),
-	"Warehouses": Color(0.43, 0.51, 0.59)
-}
-
-var building_icons = {
-	"small_house": "H1",
-	"normal_house": "H2",
-	"low_apartment": "A1",
-	"high_apartment": "A2",
-	"residential_tower": "T",
-	"small_park": "P",
-	"playground": "PLAY",
-	"sports_center": "SPORT",
-	"cultural_center": "ART",
-	"school": "SCH",
-	"university": "UNI",
-	"clinic": "MED",
-	"hospital": "H+",
-	"grocery_store": "SHOP",
-	"bakery": "BAKE",
-	"restaurant": "FOOD",
-	"office": "OFF",
-	"shopping_mall": "MALL",
-	"factory": "IND",
-	"mineral_market": "ORE",
-	"stone_mine": "STONE",
-	"iron_mine": "IRON",
-	"water_tower": "H2O",
-	"power_station": "PWR",
-	"sewage_plant": "WTR",
-	"waste_facility": "REC",
-	"city_hall": "CITY",
-	"police_station": "POL",
-	"fire_station": "FIRE",
-	"small_warehouse": "S",
-	"medium_warehouse": "M",
-	"large_warehouse": "L",
-	"huge_warehouse": "XL"
-}
+var main_panel
+var main_vbox
+var category_container
+var building_container
+var info_label
 
 
 func _ready():
-	name = "ConstructionUI"
-	_build_interface()
-	hide()
+	_build_ui()
 
 
-func _build_interface():
-	# Anchor the menu to the bottom of the screen.
-	anchor_left = 1.0
-	anchor_right = 1.0
-	anchor_top = 1.0
-	anchor_bottom = 1.0
+func _make_font(font_size):
+	var font = DynamicFont.new()
+	font.font_data = load("res://assets/fonts/Roboto-Regular.ttf")
+	font.size = font_size
+	return font
 
-	margin_left = -400
-	margin_right = -9
-	margin_top = -MENU_HEIGHT
-	margin_bottom = -BOTTOM_MARGIN
 
-	rect_min_size = Vector2(0, MENU_HEIGHT - BOTTOM_MARGIN)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+func _build_ui():
+	main_panel = Panel.new()
+	main_panel.name = "ConstructionPanel"
+	main_panel.rect_min_size = Vector2(MENU_WIDTH, MENU_HEIGHT)
+	main_panel.rect_size = Vector2(MENU_WIDTH, MENU_HEIGHT)
+	main_panel.anchor_left = 0.5
+	main_panel.anchor_right = 0.5
+	main_panel.anchor_top = 0.5
+	main_panel.anchor_bottom = 0.5
+	main_panel.margin_left = -MENU_WIDTH / 2
+	main_panel.margin_right = MENU_WIDTH / 2
+	main_panel.margin_top = -MENU_HEIGHT / 2
+	main_panel.margin_bottom = MENU_HEIGHT / 2
+	add_child(main_panel)
 
-	# Background panel
-	var background = Panel.new()
-	background.name = "MenuBackground"
-	background.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	main_vbox = VBoxContainer.new()
+	main_vbox.name = "MainVBox"
+	main_vbox.anchor_right = 1.0
+	main_vbox.anchor_bottom = 1.0
+	main_vbox.margin_left = 10
+	main_vbox.margin_top = 10
+	main_vbox.margin_right = -10
+	main_vbox.margin_bottom = -10
+	main_vbox.add_constant_override("separation", 6)
+	main_panel.add_child(main_vbox)
 
-	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.055, 0.085, 0.12, 0.98)
-	panel_style.border_color = Color(0.20, 0.38, 0.52, 1.0)
-	panel_style.border_width_left = 1
-	panel_style.border_width_right = 1
-	panel_style.border_width_top = 1
-	panel_style.border_width_bottom = 1
-	panel_style.corner_radius_top_left = 8
-	panel_style.corner_radius_top_right = 8
-	panel_style.corner_radius_bottom_left = 8
-	panel_style.corner_radius_bottom_right = 8
+	var title = Label.new()
+	title.text = "Construction"
+	title.align = Label.ALIGN_CENTER
+	title.rect_min_size = Vector2(0, 28)
+	title.add_font_override("font", _make_font(18))
+	main_vbox.add_child(title)
 
-	background.add_stylebox_override("panel", panel_style)
-	background.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(background)
-
-	# Main vertical layout
-	var main = VBoxContainer.new()
-	main.name = "MainLayout"
-	main.set_anchors_and_margins_preset(Control.PRESET_WIDE)
-	main.margin_left = 8
-	main.margin_top = TOP_MARGIN
-	main.margin_right = -8
-	main.margin_bottom = -8
-	main.add_constant_override("separation", 3)
-	add_child(main)
-
-	# Small heading
-	var heading = Label.new()
-	heading.text = "BUILD YOUR CITY"
-	heading.rect_min_size = Vector2(0, 20)
-	heading.align = Label.ALIGN_CENTER
-	heading.add_font_override("font", _make_font(12))
-	heading.add_color_override("font_color", Color(0.88, 0.94, 1.0))
-	main.add_child(heading)
-
-	# Horizontal category scrolling
-	category_scroll = ScrollContainer.new()
+	var category_scroll = ScrollContainer.new()
 	category_scroll.name = "CategoryScroll"
-	category_scroll.rect_min_size = Vector2(0, 34)
+	category_scroll.rect_min_size = Vector2(0, 38)
 	category_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	category_scroll.scroll_horizontal_enabled = true
-	category_scroll.scroll_vertical_enabled = false
-	main.add_child(category_scroll)
+	category_scroll.size_flags_vertical = 0
+	main_vbox.add_child(category_scroll)
 
-	category_bar = HBoxContainer.new()
-	category_bar.name = "CategoryBar"
-	category_bar.add_constant_override("separation", 4)
-	category_scroll.add_child(category_bar)
+	category_container = HBoxContainer.new()
+	category_container.name = "CategoryContainer"
+	category_container.add_constant_override("separation", 6)
+	category_scroll.add_child(category_container)
 
-	for category in categories.keys():
-		var button = Button.new()
-		button.text = category
-		button.rect_min_size = Vector2(88, 28)
-		button.add_font_override("font", _make_font(12))
-		button.focus_mode = Control.FOCUS_NONE
+	_create_category_button("All")
+	_create_category_button("Residential")
+	_create_category_button("Commercial")
+	_create_category_button("Industrial")
+	_create_category_button("Nature")
+	_create_category_button("Education")
 
-		button.connect(
-			"pressed",
-			self,
-			"_on_category_pressed",
-			[category]
-		)
-
-		category_bar.add_child(button)
-		category_buttons[category] = button
-
-	# Horizontal building-card scrolling
-	building_scroll = ScrollContainer.new()
+	var building_scroll = ScrollContainer.new()
 	building_scroll.name = "BuildingScroll"
-	building_scroll.rect_min_size = Vector2(0, 91)
 	building_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	building_scroll.scroll_horizontal_enabled = true
-	building_scroll.scroll_vertical_enabled = false
-	main.add_child(building_scroll)
+	building_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	main_vbox.add_child(building_scroll)
 
-	building_bar = HBoxContainer.new()
-	building_bar.name = "BuildingBar"
-	building_bar.add_constant_override("separation", 5)
-	building_scroll.add_child(building_bar)
+	building_container = HBoxContainer.new()
+	building_container.name = "BuildingContainer"
+	building_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	building_container.add_constant_override("separation", 8)
+	building_scroll.add_child(building_container)
 
-	# Footer
+	info_label = Label.new()
+	info_label.name = "InfoLabel"
+	info_label.text = "Choose a building"
+	info_label.align = Label.ALIGN_CENTER
+	info_label.rect_min_size = Vector2(0, 22)
+	info_label.add_font_override("font", _make_font(12))
+	main_vbox.add_child(info_label)
+
 	var footer = HBoxContainer.new()
 	footer.name = "Footer"
-	footer.rect_min_size = Vector2(0, 34)
-	footer.add_constant_override("separation", 5)
-	main.add_child(footer)
-
-	selected_label = Label.new()
-	selected_label.text = "Select a building"
-	selected_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	selected_label.valign = Label.VALIGN_CENTER
-	selected_label.add_font_override("font", _make_font(11))
-	selected_label.add_color_override(
-		"font_color",
-		Color(0.85, 0.91, 1.0)
-	)
-	footer.add_child(selected_label)
+	footer.alignment = BoxContainer.ALIGN_CENTER
+	footer.add_constant_override("separation", 12)
+	main_vbox.add_child(footer)
 
 	var cancel_button = Button.new()
-	cancel_button.text = "CANCEL"
-	cancel_button.rect_min_size = Vector2(65, 30)
-	cancel_button.add_font_override("font", _make_font(11))
-	cancel_button.focus_mode = Control.FOCUS_NONE
-	cancel_button.connect(
-		"pressed",
-		self,
-		"_on_cancel_pressed"
-	)
+	cancel_button.text = "Cancel"
+	cancel_button.rect_min_size = Vector2(100, 30)
+	cancel_button.connect("pressed", self, "_on_cancel_pressed")
 	footer.add_child(cancel_button)
 
-	confirm_button = Button.new()
-	confirm_button.text = "BUILD"
-	confirm_button.rect_min_size = Vector2(72, 30)
-	confirm_button.add_font_override("font", _make_font(11))
-	confirm_button.focus_mode = Control.FOCUS_NONE
-	confirm_button.disabled = true
-	confirm_button.connect(
+	var build_button = Button.new()
+	build_button.text = "Build"
+	build_button.rect_min_size = Vector2(100, 30)
+	build_button.connect("pressed", self, "_on_build_pressed")
+	footer.add_child(build_button)
+
+	_refresh_building_cards()
+
+
+func _create_category_button(category_name):
+	var button = Button.new()
+	button.text = category_name
+	button.rect_min_size = Vector2(90, 30)
+	button.focus_mode = Control.FOCUS_NONE
+	button.connect(
 		"pressed",
 		self,
-		"_on_confirm_pressed"
+		"_on_category_pressed",
+		[category_name]
 	)
-	footer.add_child(confirm_button)
-
-	_refresh_building_cards()
-	_update_category_buttons()
-
-
-func _on_category_pressed(category):
-	selected_category = category
-	selected_building_id = ""
-
-	selected_label.text = "Select a building"
-	confirm_button.disabled = true
-
-	_refresh_building_cards()
-	_update_category_buttons()
-
-	building_scroll.scroll_horizontal = 0
+	category_container.add_child(button)
 
 
 func _refresh_building_cards():
-	if building_bar == null:
-		return
-
-	for child in building_bar.get_children():
-		building_bar.remove_child(child)
+	for child in building_container.get_children():
 		child.queue_free()
 
-	building_buttons.clear()
+	for building in buildings:
+		if selected_category != "All":
+			if building["category"] != selected_category:
+				continue
 
-	var items = categories.get(selected_category, [])
-	var icon_color = building_colors.get(
-		selected_category,
-		Color(0.25, 0.5, 0.8)
-	)
+		var card = PanelContainer.new()
+		card.name = str(building["id"]) + "_Card"
+		card.rect_min_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
+		card.rect_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
+		card.size_flags_horizontal = 0
+		building_container.add_child(card)
 
-	for building_id in items:
-		var card = VBoxContainer.new()
-		card.name = building_id + "_Card"
-		card.rect_min_size = Vector2(88, 82)
-		card.add_constant_override("separation", 2)
-		building_bar.add_child(card)
-
-		var icon_panel = Panel.new()
-		icon_panel.rect_min_size = Vector2(0, 34)
-		card.add_child(icon_panel)
-
-		var icon_style = StyleBoxFlat.new()
-		icon_style.bg_color = icon_color
-		icon_style.corner_radius_top_left = 5
-		icon_style.corner_radius_top_right = 5
-		icon_style.corner_radius_bottom_left = 5
-		icon_style.corner_radius_bottom_right = 5
-		icon_panel.add_stylebox_override("panel", icon_style)
+		var card_vbox = VBoxContainer.new()
+		card_vbox.add_constant_override("separation", 6)
+		card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		card.add_child(card_vbox)
 
 		var icon_label = Label.new()
-		icon_label.text = building_icons.get(building_id, "?")
+		icon_label.text = str(building["icon"])
 		icon_label.align = Label.ALIGN_CENTER
 		icon_label.valign = Label.VALIGN_CENTER
-		icon_label.set_anchors_and_margins_preset(Control.PRESET_WIDE)
-		icon_label.add_color_override("font_color", Color(1, 1, 1))
-		icon_label.add_font_override("font", _make_font(10))
-		icon_panel.add_child(icon_label)
+		icon_label.rect_min_size = Vector2(0, 35)
+		icon_label.add_font_override("font", _make_font(22))
+		card_vbox.add_child(icon_label)
 
-		var building_button = Button.new()
-		building_button.text = building_names.get(
-			building_id,
-			building_id.replace("_", " ").capitalize()
-		)
-		building_button.rect_min_size = Vector2(88, 32)
-		building_button.add_font_override("font", _make_font(10))
-		building_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		building_button.focus_mode = Control.FOCUS_NONE
-		building_button.connect(
-			"pressed",
-			self,
-			"_on_building_pressed",
-			[building_id]
-		)
-		card.add_child(building_button)
+		var cost_label = Label.new()
+		cost_label.text = "Cost: " + str(building["cost"])
+		cost_label.align = Label.ALIGN_CENTER
+		cost_label.rect_min_size = Vector2(0, 22)
+		cost_label.add_font_override("font", _make_font(11))
+		card_vbox.add_child(cost_label)
 
-		building_buttons[building_id] = building_button
+		var select_button = Button.new()
+		select_button.name = "BuildingButton"
+		select_button.text = str(building["name"])
+		select_button.rect_min_size = Vector2(CARD_WIDTH - 10, 48)
+		select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		select_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		select_button.focus_mode = Control.FOCUS_NONE
+		select_button.autowrap = true
+
+		if selected_building_id == building["id"]:
+			select_button.text = str(building["name"]) + "\nSelected"
+			select_button.disabled = true
+		else:
+			select_button.connect(
+				"pressed",
+				self,
+				"_on_building_pressed",
+				[building["id"]]
+			)
+
+		card_vbox.add_child(select_button)
+
+
+func _on_category_pressed(category_name):
+	selected_category = category_name
+	selected_building_id = null
+	info_label.text = "Choose a building"
+	_refresh_building_cards()
 
 
 func _on_building_pressed(building_id):
 	selected_building_id = building_id
 
-	selected_label.text = building_names.get(
-		building_id,
-		building_id.replace("_", " ").capitalize()
-	)
+	for building in buildings:
+		if building["id"] == building_id:
+			info_label.text = (
+				str(building["name"])
+				+ " | Cost: "
+				+ str(building["cost"])
+			)
+			break
 
-	confirm_button.disabled = false
-
-	for id in building_buttons.keys():
-		building_buttons[id].modulate = Color(1, 1, 1, 1)
-
-	if building_buttons.has(building_id):
-		building_buttons[building_id].modulate = Color(
-			0.65,
-			0.88,
-			1.0,
-			1.0
-		)
-
-
-func _update_category_buttons():
-	for category in category_buttons.keys():
-		var button = category_buttons[category]
-
-		if category == selected_category:
-			button.modulate = Color(0.55, 0.85, 1.0, 1.0)
-		else:
-			button.modulate = Color(1, 1, 1, 1)
-
-
-func _make_font(font_size):
-	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
-
-	if not ResourceLoader.exists(font_path):
-		return null
-
-	var font = DynamicFont.new()
-	font.font_data = load(font_path)
-	font.size = font_size
-	return font
-
-
-func _on_confirm_pressed():
-	if selected_building_id == "":
-		return
-
-	emit_signal("building_confirmed", selected_building_id)
-	hide()
+	_refresh_building_cards()
 
 
 func _on_cancel_pressed():
-	selected_building_id = ""
-	emit_signal("construction_cancelled")
+	selected_building_id = null
+	info_label.text = "Choose a building"
 	hide()
 
 
-func open_menu():
-	selected_building_id = ""
+func _on_build_pressed():
+	if selected_building_id == null:
+		info_label.text = "Select a building first"
+		return
 
-	if selected_label != null:
-		selected_label.text = "Select a building"
+	var selected_building = null
 
-	if confirm_button != null:
-		confirm_button.disabled = true
+	for building in buildings:
+		if building["id"] == selected_building_id:
+			selected_building = building
+			break
 
-	_refresh_building_cards()
-	_update_category_buttons()
+	if selected_building == null:
+		return
 
-	show()
-	raise()
+	emit_signal("building_selected", selected_building)
+	hide()
+
+
+signal building_selected(building_data)
