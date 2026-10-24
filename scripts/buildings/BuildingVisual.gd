@@ -1,3 +1,4 @@
+
 extends Node2D
 
 var world = null
@@ -5,13 +6,21 @@ var building_id = ""
 var grid_pos = Vector2.ZERO
 var building_index = -1
 var visual_alpha = 1.0
+
 var drawer = null
 var building_texture = null
+
 var visible_bounds = Rect2()
 var has_visible_bounds = false
 
-# مثبت: پایین‌تر، منفی: بالاتر
+# حداکثر اندازه تصویر با حفظ نسبت طول و عرض
+const BUILDING_TARGET_SIZE = Vector2(64, 64)
+
+# تنظیم جزئی ارتفاع تصویر
 const GROUND_OFFSET_Y = 0.0
+
+# تنظیم جداگانه خانه کوچک
+const SMALL_HOUSE_OFFSET_Y = 8.0
 
 const BUILDING_IMAGE_PATHS = {
 	"small_house": "res://BuildingImages/small_house.png",
@@ -19,22 +28,30 @@ const BUILDING_IMAGE_PATHS = {
 	"low_apartment": "res://BuildingImages/low_apartment.png",
 	"high_apartment": "res://BuildingImages/high_apartment.png",
 	"residential_tower": "res://BuildingImages/residential_tower.png",
-	"road": "res://BuildingImages/road.png",
 	"grocery_store": "res://BuildingImages/grocery_store.png",
+	"bakery": "res://BuildingImages/grocery_store.png",
+	"restaurant": "res://BuildingImages/grocery_store.png",
+	"office": "res://BuildingImages/high_apartment.png",
+	"shopping_mall": "res://BuildingImages/high_apartment.png",
+	"factory": "res://BuildingImages/medium_warehouse.png",
+	"mineral_market": "res://BuildingImages/iron_mine.png",
 	"school": "res://BuildingImages/school.png",
-	"clinic": "res://BuildingImages/clinic.png",
+	"university": "res://BuildingImages/high_school.png",
+	"clinic": "res://BuildingImages/hospital.png",
 	"hospital": "res://BuildingImages/hospital.png",
 	"small_park": "res://BuildingImages/small_park.png",
 	"small_warehouse": "res://BuildingImages/small_warehouse.png",
 	"medium_warehouse": "res://BuildingImages/medium_warehouse.png",
-	"large_warehouse": "res://BuildingImages/large_warehouse.png",
-	"huge_warehouse": "res://BuildingImages/huge_warehouse.png"
+	"large_warehouse": "res://BuildingImages/medium_warehouse.png",
+	"huge_warehouse": "res://BuildingImages/medium_warehouse.png"
 }
 
 
-func setup(world_node, new_building_id, new_grid_pos, new_building_index, new_alpha = 1.0):
+func setup(world_node, new_building_id, new_grid_pos,
+		new_building_index, new_alpha = 1.0):
+
 	world = world_node
-	building_id = new_building_id
+	building_id = str(new_building_id)
 	grid_pos = new_grid_pos
 	building_index = new_building_index
 	visual_alpha = clamp(new_alpha, 0.0, 1.0)
@@ -42,30 +59,52 @@ func setup(world_node, new_building_id, new_grid_pos, new_building_index, new_al
 	drawer = _get_drawer(building_id)
 	building_texture = _get_building_texture(building_id)
 
+	has_visible_bounds = false
+
 	if building_texture != null:
 		_calculate_visible_bounds()
 
-	var footprint = world.building_footprints.get_footprint(building_id)
+	# محدوده اشغال‌شده روی شبکه
+	var footprint = Vector2.ONE
 
+	if world != null and world.building_footprints != null:
+		footprint = world.building_footprints.get_footprint(
+			building_id
+		)
+
+	# مرکز محدوده ساختمان روی شبکه
 	var visual_grid_pos = grid_pos + Vector2(
 		(footprint.x - 1.0) / 2.0,
 		(footprint.y - 1.0) / 2.0
 	)
 
-	position = world.grid_to_screen(
-		visual_grid_pos,
-		Vector2(600, 130)
-	)
+	# حفظ مختصات و دوربین فعلی
+	if world != null:
+		position = world.grid_to_screen(
+			visual_grid_pos,
+			Vector2(600, 130)
+		)
 
 	z_index = int((grid_pos.x + grid_pos.y) * 10)
-	modulate = Color(1.0, 1.0, 1.0, visual_alpha)
+
+	modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		visual_alpha
+	)
+
 	update()
 
 
 func _calculate_visible_bounds():
 	has_visible_bounds = false
 
+	if building_texture == null:
+		return
+
 	var image = building_texture.get_data()
+
 	if image == null:
 		return
 
@@ -94,7 +133,10 @@ func _calculate_visible_bounds():
 
 	visible_bounds = Rect2(
 		Vector2(min_x, min_y),
-		Vector2(max_x - min_x + 1, max_y - min_y + 1)
+		Vector2(
+			max_x - min_x + 1,
+			max_y - min_y + 1
+		)
 	)
 
 	has_visible_bounds = true
@@ -102,7 +144,14 @@ func _calculate_visible_bounds():
 
 func set_visual_alpha(value):
 	visual_alpha = clamp(value, 0.0, 1.0)
-	modulate = Color(1.0, 1.0, 1.0, visual_alpha)
+
+	modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		visual_alpha
+	)
+
 	update()
 
 
@@ -119,13 +168,35 @@ func _get_building_texture(id):
 
 
 func _get_drawer(id):
-	if id in ["small_house", "normal_house", "low_apartment", "high_apartment", "residential_tower"]:
+	if world == null:
+		return null
+
+	if id in [
+		"small_house",
+		"normal_house",
+		"low_apartment",
+		"high_apartment",
+		"residential_tower"
+	]:
 		return world.residential_buildings
 
-	if id in ["grocery_store", "bakery", "restaurant", "office", "shopping_mall", "factory", "mineral_market"]:
+	if id in [
+		"grocery_store",
+		"bakery",
+		"restaurant",
+		"office",
+		"shopping_mall",
+		"factory",
+		"mineral_market"
+	]:
 		return world.commercial_buildings
 
-	if id in ["small_warehouse", "medium_warehouse", "large_warehouse", "huge_warehouse"]:
+	if id in [
+		"small_warehouse",
+		"medium_warehouse",
+		"large_warehouse",
+		"huge_warehouse"
+	]:
 		return world.warehouse_buildings
 
 	if id in ["school", "university"]:
@@ -134,13 +205,27 @@ func _get_drawer(id):
 	if id in ["clinic", "hospital"]:
 		return world.healthcare_buildings
 
-	if id in ["police_station", "fire_station", "city_hall"]:
+	if id in [
+		"police_station",
+		"fire_station",
+		"city_hall"
+	]:
 		return world.public_buildings
 
-	if id in ["water_tower", "power_station", "sewage_plant", "waste_facility"]:
+	if id in [
+		"water_tower",
+		"power_station",
+		"sewage_plant",
+		"waste_facility"
+	]:
 		return world.utility_buildings
 
-	if id in ["small_park", "playground", "sports_center", "cultural_center"]:
+	if id in [
+		"small_park",
+		"playground",
+		"sports_center",
+		"cultural_center"
+	]:
 		return world.recreation_buildings
 
 	return null
@@ -152,39 +237,54 @@ func _draw():
 
 	if building_texture != null:
 		var texture_size = building_texture.get_size()
-		var target_size = Vector2(58, 58)
 
+		if texture_size.x <= 0 or texture_size.y <= 0:
+			return
+
+		# کوچک‌سازی متناسب، بدون چرخاندن تصویر
 		var scale_factor = min(
-			target_size.x / texture_size.x,
-			target_size.y / texture_size.y
+			BUILDING_TARGET_SIZE.x / texture_size.x,
+			BUILDING_TARGET_SIZE.y / texture_size.y
 		)
 
-		var draw_position = Vector2.ZERO
+		# نقطه اتصال افقی و عمودی تصویر
+		var anchor_x = texture_size.x / 2.0
+		var anchor_y = texture_size.y
 
+		# نادیده گرفتن حاشیه‌های شفاف PNG
 		if has_visible_bounds:
-			# مرکز افقی تصویر قابل مشاهده
-			draw_position.x = -(
+			anchor_x = (
 				visible_bounds.position.x
 				+ visible_bounds.size.x / 2.0
 			)
 
-			# پایه تصویر روی نوک پایینی لوزی
-			draw_position.y = (
-				texture_size.y / 2.0
-				- visible_bounds.end.y
-				- 5.0 / scale_factor
-			)
-		else:
-			draw_position = -texture_size / 2.0
+			anchor_y = visible_bounds.end.y
+
+		# اصلاح جداگانه ارتفاع خانه کوچک
+		var extra_offset_y = 0.0
+
+		if building_id == "small_house":
+			extra_offset_y = SMALL_HOUSE_OFFSET_Y
+
+		var draw_position = Vector2(
+			-anchor_x * scale_factor,
+			-anchor_y * scale_factor
+			+ GROUND_OFFSET_Y
+			+ extra_offset_y
+		)
 
 		draw_set_transform(
-			draw_position * scale_factor,
+			draw_position,
 			0.0,
 			Vector2(scale_factor, scale_factor)
 		)
 
-		draw_texture(building_texture, Vector2.ZERO)
+		draw_texture(
+			building_texture,
+			Vector2.ZERO
+		)
 
+		# بازگرداندن تبدیل رسم
 		draw_set_transform(
 			Vector2.ZERO,
 			0.0,
@@ -193,6 +293,7 @@ func _draw():
 
 		return
 
+	# روش رسم جایگزین اگر تصویر وجود نداشته باشد
 	if drawer != null:
 		drawer.draw_building(
 			self,
