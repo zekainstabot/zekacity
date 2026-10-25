@@ -213,7 +213,10 @@ func _ready():
 	population_label = Label.new()
 	population_label.name = "PopulationLabel"
 	population_label.text = "Population: 0"
-	population_label.rect_position = Vector2(16, 70)
+	population_label.rect_position = Vector2(
+	get_viewport().get_visible_rect().size.x - 50,
+	75
+)
 	population_label.rect_min_size = Vector2(250, 32)
 
 	population_label.add_color_override(

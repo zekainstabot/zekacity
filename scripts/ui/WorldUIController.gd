@@ -45,7 +45,7 @@ func _create_treasury_label():
 	if ResourceLoader.exists(font_path):
 		var money_font = DynamicFont.new()
 		money_font.font_data = load(font_path)
-		money_font.size = 56
+		money_font.size = 40
 		treasury_label.add_font_override("font", money_font)
 	else:
 		push_warning(
@@ -78,8 +78,8 @@ func _create_treasury_label():
 	treasury_label.rect_size = Vector2(700, 100)
 	treasury_label.rect_min_size = Vector2(700, 100)
 	treasury_label.rect_position = Vector2(
-		max(10, viewport_size.x - 720),
-		10
+		max(10, viewport_size.x - 500),
+		1
 	)
 
 	treasury_label.visible = true
