@@ -139,6 +139,7 @@ var land_purchase_controller = preload(
 ).new()
 
 var treasury_label = null
+var population_label = null
 var land_purchase_dialog = null
 var pending_land_grid = Vector2(0, 0)
 
@@ -185,6 +186,7 @@ var building_names = {
 
 
 
+
 func _ready():
 	print("CITY TREASURY INITIALIZED: ", city_treasury.get_balance())
 
@@ -205,7 +207,31 @@ func _ready():
 	_setup_construction_button()
 	land_purchase_controller.initialize(self)
 
+
 	treasury_label = ui_elements.get("treasury_label")
+
+	population_label = Label.new()
+	population_label.name = "PopulationLabel"
+	population_label.text = "Population: 0"
+	population_label.rect_position = Vector2(16, 70)
+	population_label.rect_min_size = Vector2(250, 32)
+
+	population_label.add_color_override(
+		"font_color",
+		Color(1, 1, 1, 1)
+	)
+
+	var population_font = DynamicFont.new()
+	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
+
+	if ResourceLoader.exists(font_path):
+		population_font.font_data = load(font_path)
+
+	population_font.size = 20
+	population_label.add_font_override("font", population_font)
+
+	ui.add_child(population_label)
+
 	buy_land_button = ui_elements.get("buy_land_button")
 	land_purchase_dialog = ui_elements.get("land_purchase_dialog")
 
@@ -343,16 +369,22 @@ func _ready():
 	add_child(citizen_system)
 	citizen_system.initialize(self)
 
-	update()
-
-	# Load the saved city.
+	# Load the saved city after initializing the systems.
 	var save_loaded = save_system.load_world(self)
 
-	if not save_loaded:
-		citizen_system.sync_residents()
-		save_system.save_world(self)
-	else:
+	if save_loaded:
 		print("Previous city progress restored")
+
+	# Rebuild residents after loading saved buildings.
+	if citizen_system != null:
+		citizen_system.sync_residents()
+		_update_population_label()
+
+	# Create an initial save if no previous city was loaded.
+	if not save_loaded:
+		save_system.save_world(self)
+
+	update()
 
 
 # =========================================
@@ -566,24 +598,27 @@ func _on_ConstructionMenu_id_pressed(id):
 # =========================================
 
 
+
+
 func _place_building(building_id):
 	var grid_pos = Vector2(selected_x, selected_y)
 	var road_system = get_node_or_null("../RoadSystem")
 
-	var can_place = building_placement.can_place_building(
-		building_id,
+	# Check the selected tile first, then its 4 direct neighbors.
+	var candidate_positions = [
 		grid_pos,
-		grid_size,
-		placed_buildings,
-		building_footprints,
-		land_system,
-		road_system
-	)
+		grid_pos + Vector2(1, 0),
+		grid_pos + Vector2(-1, 0),
+		grid_pos + Vector2(0, 1),
+		grid_pos + Vector2(0, -1)
+	]
 
-	if not can_place:
-		var error_code = building_placement.get_placement_error(
+	var found_position = false
+
+	for candidate in candidate_positions:
+		var can_place = building_placement.can_place_building(
 			building_id,
-			grid_pos,
+			candidate,
 			grid_size,
 			placed_buildings,
 			building_footprints,
@@ -591,7 +626,17 @@ func _place_building(building_id):
 			road_system
 		)
 
-		print("BUILDING PLACEMENT FAILED: ", error_code)
+		if can_place:
+			grid_pos = candidate
+			found_position = true
+			break
+
+	# Cancel construction if no valid position exists.
+	if not found_position:
+		print("BUILDING PLACEMENT CANCELLED: No valid adjacent tile.")
+		selected_building_for_placement = ""
+		road_placement_direction = -1
+		update()
 		return false
 
 	var StorageDefinitions = load(
@@ -601,6 +646,40 @@ func _place_building(building_id):
 		"res://scripts/BuildingData.gd"
 	)
 
+	# Validate the building ID and population requirements.
+	var required_population = 0
+
+	if BuildingData.BUILDINGS.has(building_id):
+		required_population = int(
+			BuildingData.BUILDINGS[building_id].get(
+				"population_required",
+				0
+			)
+		)
+	elif not StorageDefinitions.has_warehouse(building_id):
+		print(
+			"BUILDING PLACEMENT FAILED: UNKNOWN_BUILDING: ",
+			building_id
+		)
+		return false
+
+	var current_population = 0
+
+	if citizen_system != null:
+		current_population = citizen_system.citizens.size()
+
+	if current_population < required_population:
+		print(
+			"BUILDING LOCKED: ",
+			building_id,
+			" | Required population: ",
+			required_population,
+			" | Current population: ",
+			current_population
+		)
+		return false
+
+	# Determine construction cost.
 	var building_cost = 0
 
 	if StorageDefinitions.has_warehouse(building_id):
@@ -608,13 +687,6 @@ func _place_building(building_id):
 			StorageDefinitions.get_cost(building_id)
 		)
 	else:
-		if not BuildingData.BUILDINGS.has(building_id):
-			print(
-				"BUILDING PLACEMENT FAILED: UNKNOWN_BUILDING_COST: ",
-				building_id
-			)
-			return false
-
 		building_cost = int(
 			BuildingData.BUILDINGS[building_id].get("cost", 0)
 		)
@@ -623,6 +695,7 @@ func _place_building(building_id):
 		print("BUILDING PLACEMENT FAILED: INVALID_COST")
 		return false
 
+	# Check available money.
 	if not city_treasury.can_afford(building_cost):
 		print(
 			"NOT ENOUGH MONEY. Cost: $",
@@ -632,11 +705,13 @@ func _place_building(building_id):
 		)
 		return false
 
+	# Charge the city only after a valid location is found.
 	if building_cost > 0:
 		if not city_treasury.spend(building_cost):
 			print("BUILDING PLACEMENT FAILED: PAYMENT_FAILED")
 			return false
 
+	# Place the building at the selected or nearby valid position.
 	placed_buildings.append({
 		"grid": grid_pos,
 		"id": building_id
@@ -645,13 +720,14 @@ func _place_building(building_id):
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
 
+	# Synchronize warehouses and residents.
 	storage_system.sync_warehouses(placed_buildings)
-	
-	
+
 	if citizen_system != null:
 		citizen_system.sync_residents()
+		_update_population_label()
 
-
+	# Reset placement state and refresh the world.
 	selected_building_for_placement = ""
 	road_placement_direction = -1
 
@@ -668,9 +744,11 @@ func _place_building(building_id):
 		building_cost
 	)
 
+	# Save the updated city.
 	save_system.save_world(self)
 
 	return true
+
 
 # =========================================
 # PLACING ROADS
@@ -1027,3 +1105,14 @@ func _on_construction_ui_building_confirmed(building_id):
 		building_id,
 		" | Tap a valid tile to place it."
 	)
+
+func _update_population_label():
+	if population_label == null:
+		return
+
+	var population = 0
+
+	if citizen_system != null:
+		population = citizen_system.citizens.size()
+
+	population_label.text = "Population: " + str(population)

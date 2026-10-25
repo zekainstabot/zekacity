@@ -4,9 +4,9 @@ extends Control
 signal building_confirmed(building_id)
 
 const MENU_WIDTH = 620
-const MENU_HEIGHT = 370
+const MENU_HEIGHT = 390
 const CARD_WIDTH = 142
-const CARD_HEIGHT = 178
+const CARD_HEIGHT = 200
 const EDGE_MARGIN = 16
 const IMAGE_SIZE = Vector2(104, 94)
 
@@ -72,12 +72,17 @@ const BUILDING_ICONS = {
 var selected_category = "All"
 var selected_building_id = null
 var buildings = []
+var font_cache = {}
 
 var main_panel = null
 var main_vbox = null
 var category_container = null
 var building_container = null
 var info_label = null
+
+var building_footprints = preload(
+	"res://scripts/buildings/BuildingFootprints.gd"
+).new()
 
 
 func _ready():
@@ -118,7 +123,11 @@ func _load_buildings():
 		buildings.append(item)
 
 
+
 func _make_font(font_size):
+	if font_cache.has(font_size):
+		return font_cache[font_size]
+
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
 	if not ResourceLoader.exists(font_path):
@@ -127,6 +136,9 @@ func _make_font(font_size):
 	var font = DynamicFont.new()
 	font.font_data = load(font_path)
 	font.size = font_size
+
+	font_cache[font_size] = font
+
 	return font
 
 
@@ -309,8 +321,6 @@ func _refresh_building_cards():
 		var card = PanelContainer.new()
 		card.name = building_id + "_Card"
 		card.rect_min_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
-
-		# Godot 3.6: از SIZE_SHRINK_BEGIN استفاده نمی‌کنیم.
 		card.size_flags_horizontal = Control.SIZE_FILL
 		card.mouse_filter = Control.MOUSE_FILTER_STOP
 		building_container.add_child(card)
@@ -360,6 +370,7 @@ func _refresh_building_cards():
 		_apply_font(name_label, 11)
 		card_vbox.add_child(name_label)
 
+		
 		var cost_label = Label.new()
 		cost_label.text = "Cost: " + str(building.get("cost", 0))
 		cost_label.align = Label.ALIGN_CENTER
@@ -367,6 +378,38 @@ func _refresh_building_cards():
 		cost_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_apply_font(cost_label, 11)
 		card_vbox.add_child(cost_label)
+
+		var required_population = int(
+			building.get("population_required", 0)
+		)
+
+		var population_label = Label.new()
+		population_label.name = "RequiredPopulation"
+		population_label.text = "Required Pop: " + str(required_population)
+		population_label.align = Label.ALIGN_CENTER
+		population_label.rect_min_size = Vector2(0, 20)
+		population_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		population_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_apply_font(population_label, 10)
+		card_vbox.add_child(population_label)
+		
+		var footprint = building_footprints.get_footprint(
+			building_id
+		)
+
+
+		var size_label = Label.new()
+		size_label.name = "BuildingSize"
+		size_label.text = (
+			str(int(footprint.x))
+			+ " × "
+			+ str(int(footprint.y))
+		)
+		size_label.align = Label.ALIGN_CENTER
+		size_label.rect_min_size = Vector2(0, 18)
+		size_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_apply_font(size_label, 11)
+		card_vbox.add_child(size_label)
 
 		var select_button = Button.new()
 		select_button.name = "BuildingButton"
@@ -408,6 +451,8 @@ func _on_building_pressed(building_id):
 				str(building.get("name", building_id))
 				+ " | Cost: "
 				+ str(building.get("cost", 0))
+				+ " | Required Pop: "
+				+ str(building.get("population_required", 0))
 			)
 			break
 
