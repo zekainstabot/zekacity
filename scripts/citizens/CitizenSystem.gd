@@ -3,7 +3,7 @@ extends Node2D
 
 # ZekaCity - CitizenSystem.gd
 # Godot 3.6
-# Automatic residents, movement and persistence
+# Road-based citizen movement, visuals and persistence
 
 const CITIZEN_VISUAL_PATH = "res://scripts/citizens/CitizenVisual.gd"
 
@@ -24,17 +24,15 @@ func _process(delta):
 	if world == null:
 		return
 
-	for i in range(citizens.size()):
-		var citizen = citizens[i]
-
+	for citizen in citizens:
 		if not citizen.has("grid_pos"):
-			citizen["grid_pos"] = citizen.get(
-				"home_grid",
-				Vector2.ZERO
-			)
+			citizen["grid_pos"] = citizen.get("home_grid", Vector2.ZERO)
 
 		if not citizen.has("target_grid"):
 			citizen["target_grid"] = citizen["grid_pos"]
+
+		if not citizen.has("previous_grid"):
+			citizen["previous_grid"] = citizen["grid_pos"]
 
 		if not citizen.has("move_progress"):
 			citizen["move_progress"] = 0.0
@@ -42,20 +40,34 @@ func _process(delta):
 		if not citizen.has("move_duration"):
 			citizen["move_duration"] = 1.0
 
+		var current = citizen["grid_pos"]
+		var target = citizen["target_grid"]
+
+		# اگر مقصد فعلی همان خانه باشد، حرکت نکن.
+		if current == target:
+			citizen["move_progress"] = 0.0
+			_update_citizen_visual(citizen)
+			continue
+
 		citizen["move_progress"] += delta
 
-		var duration = max(
-			0.1,
-			float(citizen["move_duration"])
-		)
+		var duration = max(0.1, float(citizen["move_duration"]))
 
 		if citizen["move_progress"] >= duration:
+			var previous_grid = citizen["grid_pos"]
+
 			citizen["grid_pos"] = citizen["target_grid"]
+			citizen["previous_grid"] = previous_grid
 			citizen["move_progress"] = 0.0
+
 			_choose_next_target(citizen)
 
 		_update_citizen_visual(citizen)
 
+
+# --------------------------------------------------
+# RESIDENTS
+# --------------------------------------------------
 
 func sync_residents():
 	if world == null:
@@ -96,17 +108,13 @@ func sync_residents():
 		var capacity = int(home["capacity"])
 
 		for citizen in residents:
-			if updated.size() >= 0 and updated.size() < 100000:
-				if _count_home_residents(updated, key) >= capacity:
-					break
+			if _count_home_residents(updated, key) >= capacity:
+				break
 
-				updated.append(citizen)
+			updated.append(citizen)
 
 		while _count_home_residents(updated, key) < capacity:
-			updated.append(_create_citizen(
-				key,
-				home["grid"]
-			))
+			updated.append(_create_citizen(key, home["grid"]))
 
 	citizens = updated
 	_rebuild_visuals()
@@ -126,12 +134,17 @@ func _create_citizen(home_key, home_grid):
 	var citizen_id = "citizen_" + str(next_citizen_id)
 	next_citizen_id += 1
 
+	# آدمک در صورت وجود جاده از ابتدا روی نزدیک‌ترین خانه جاده قرار می‌گیرد.
+	# این کار مانع حرکت روی ساختمان‌ها و زمین‌های خالی می‌شود.
+	var start_grid = _find_nearest_road(home_grid)
+
 	var citizen = {
 		"id": citizen_id,
 		"home_key": home_key,
 		"home_grid": home_grid,
-		"grid_pos": home_grid,
-		"target_grid": home_grid,
+		"grid_pos": start_grid,
+		"target_grid": start_grid,
+		"previous_grid": start_grid,
 		"move_progress": 0.0,
 		"move_duration": 1.0,
 		"skin_seed": rng.randi_range(1, 1000000)
@@ -175,48 +188,200 @@ func _home_key(building_id, grid):
 	]
 
 
-func _choose_next_target(citizen):
-	var candidates = []
-	var road_system = world.get_node_or_null("../RoadSystem")
+# --------------------------------------------------
+# ROAD HELPERS
+# --------------------------------------------------
 
-	if road_system != null and not road_system.roads.empty():
-		for road in road_system.roads:
-			var road_grid = road.get("grid", Vector2.ZERO)
+func _get_road_system():
+	if world == null:
+		return null
 
-			if road_grid != citizen["grid_pos"]:
-				if not candidates.has(road_grid):
-					candidates.append(road_grid)
+	return world.get_node_or_null("../RoadSystem")
 
-	else:
-		for tile in world.land_system.owned_tiles:
-			if tile != citizen["grid_pos"]:
-				if not candidates.has(tile):
-					candidates.append(tile)
 
-		if not candidates.has(citizen["home_grid"]):
-			candidates.append(citizen["home_grid"])
+func _get_road_tiles():
+	var result = []
+	var road_system = _get_road_system()
 
-	if candidates.empty():
-		citizen["target_grid"] = citizen["home_grid"]
-		citizen["move_duration"] = 1.0
-		citizen["move_progress"] = 0.0
-		return
+	if road_system == null:
+		return result
 
-	var target = candidates[
-		rng.randi_range(0, candidates.size() - 1)
-	]
+	for road in road_system.roads:
+		var grid = road.get("grid", Vector2.ZERO)
 
-	citizen["target_grid"] = target
+		if not result.has(grid):
+			result.append(grid)
 
-	var distance = abs(
-		target.x - citizen["grid_pos"].x
-	) + abs(
-		target.y - citizen["grid_pos"].y
+	return result
+
+
+func _has_road_at(grid):
+	var road_system = _get_road_system()
+
+	if road_system == null:
+		return false
+
+	return road_system.has_road(grid)
+
+
+func _has_road_axis(grid, axis):
+	var road_system = _get_road_system()
+
+	if road_system == null:
+		return false
+
+	for road in road_system.roads:
+		var road_grid = road.get("grid", Vector2.ZERO)
+		var road_direction = int(road.get("direction", -1))
+
+		if road_grid == grid and road_direction == axis:
+			return true
+
+	return false
+
+
+func _has_road_connection(from_grid, to_grid):
+	var difference = to_grid - from_grid
+
+	# حرکت افقی؛ هر دو خانه باید قطعه جاده افقی داشته باشند.
+	if difference.y == 0 and abs(difference.x) == 1:
+		return (
+			_has_road_axis(from_grid, 0)
+			and _has_road_axis(to_grid, 0)
+		)
+
+	# حرکت عمودی؛ هر دو خانه باید قطعه جاده عمودی داشته باشند.
+	if difference.x == 0 and abs(difference.y) == 1:
+		return (
+			_has_road_axis(from_grid, 1)
+			and _has_road_axis(to_grid, 1)
+		)
+
+	return false
+
+
+func _find_nearest_road(from_grid):
+	var road_tiles = _get_road_tiles()
+
+	if road_tiles.empty():
+		return from_grid
+
+	var nearest = road_tiles[0]
+	var nearest_distance = (
+		abs(from_grid.x - nearest.x)
+		+ abs(from_grid.y - nearest.y)
 	)
 
-	citizen["move_duration"] = max(0.8, distance * 0.8)
-	citizen["move_progress"] = 0.0
+	for road_grid in road_tiles:
+		var distance = (
+			abs(from_grid.x - road_grid.x)
+			+ abs(from_grid.y - road_grid.y)
+		)
 
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = road_grid
+
+	return nearest
+
+
+# --------------------------------------------------
+# ROAD-BASED MOVEMENT
+# --------------------------------------------------
+
+func _choose_next_target(citizen):
+	var current = citizen.get("grid_pos", Vector2.ZERO)
+	var previous = citizen.get("previous_grid", current)
+	var road_tiles = _get_road_tiles()
+
+	# بدون جاده حرکت نکن.
+	if road_tiles.empty():
+		citizen["target_grid"] = current
+		citizen["move_progress"] = 0.0
+		citizen["move_duration"] = 1.0
+		return
+
+	# اگر خانه فعلی جاده ندارد، نزدیک‌ترین خانه جاده را پیدا کن.
+	# این حالت برای زمانی است که جاده بعد از ایجاد آدمک ساخته شود.
+	if not road_tiles.has(current):
+		current = _find_nearest_road(current)
+		citizen["grid_pos"] = current
+		citizen["target_grid"] = current
+		citizen["previous_grid"] = current
+		previous = current
+
+	# جهت حرکت قبلی را برای ادامه مسیر مستقیم بررسی کن.
+	var direction = current - previous
+	var neighbors = []
+
+	if direction != Vector2.ZERO:
+		neighbors.append(current + direction)
+
+	# خانه‌های مجاور به‌عنوان مسیرهای جایگزین.
+	neighbors.append(current + Vector2(1, 0))
+	neighbors.append(current + Vector2(0, 1))
+	neighbors.append(current + Vector2(-1, 0))
+	neighbors.append(current + Vector2(0, -1))
+
+	var candidates = []
+
+	for neighbor in neighbors:
+		if neighbor == current:
+			continue
+
+		if not road_tiles.has(neighbor):
+			continue
+
+		if not _has_road_connection(current, neighbor):
+			continue
+
+		if not candidates.has(neighbor):
+			candidates.append(neighbor)
+
+	# تا وقتی راه دیگری وجود دارد، فوراً به خانه قبلی برنگرد.
+	if candidates.size() > 1 and candidates.has(previous):
+		candidates.erase(previous)
+
+	if candidates.empty():
+		# بن‌بست یا جاده بدون اتصال.
+		# اگر خانه قبلی مسیر متصل باشد، می‌توان برگشت.
+		if (
+			previous != current
+			and road_tiles.has(previous)
+			and _has_road_connection(current, previous)
+		):
+			candidates.append(previous)
+		else:
+			citizen["target_grid"] = current
+			citizen["move_progress"] = 0.0
+			citizen["move_duration"] = 1.0
+			return
+
+	# اگر مسیر مستقیم در دسترس باشد، همان مسیر را ادامه بده.
+	var next_grid = candidates[0]
+
+	if direction != Vector2.ZERO:
+		var forward_grid = current + direction
+
+		if candidates.has(forward_grid):
+			next_grid = forward_grid
+		elif candidates.size() > 1:
+			next_grid = candidates[
+				rng.randi_range(0, candidates.size() - 1)
+			]
+	elif candidates.size() > 1:
+		next_grid = candidates[
+			rng.randi_range(0, candidates.size() - 1)
+		]
+
+	citizen["target_grid"] = next_grid
+	citizen["move_progress"] = 0.0
+	citizen["move_duration"] = 1.0
+
+
+# --------------------------------------------------
+# VISUALS
+# --------------------------------------------------
 
 func _update_citizen_visual(citizen):
 	var citizen_id = str(citizen["id"])
@@ -227,7 +392,12 @@ func _update_citizen_visual(citizen):
 	var visual = visuals[citizen_id]
 	var start = citizen["grid_pos"]
 	var target = citizen["target_grid"]
-	var duration = max(0.1, float(citizen["move_duration"]))
+
+	var duration = max(
+		0.1,
+		float(citizen["move_duration"])
+	)
+
 	var weight = clamp(
 		float(citizen["move_progress"]) / duration,
 		0.0,
@@ -255,17 +425,29 @@ func _rebuild_visuals():
 
 	var visual_script = load(CITIZEN_VISUAL_PATH)
 
+	if visual_script == null:
+		push_error("Could not load CitizenVisual.gd")
+		return
+
 	for citizen in citizens:
 		var citizen_id = str(citizen["id"])
 		var visual = visual_script.new()
 
 		visual.name = citizen_id
 		add_child(visual)
+
 		visual.setup(int(citizen.get("skin_seed", 0)))
+
+		# اندازه آدمک: 70 درصد اندازه اصلی
+		visual.scale = Vector2(0.7, 0.7)
 
 		visuals[citizen_id] = visual
 		_update_citizen_visual(citizen)
 
+
+# --------------------------------------------------
+# SAVE / LOAD
+# --------------------------------------------------
 
 func get_save_data():
 	var result = []
@@ -317,18 +499,25 @@ func load_data(saved_citizens):
 			citizen_number + 1
 		)
 
+		var home_grid = _data_to_vector(
+			saved.get("home_grid", {})
+		)
+
+		var grid_pos = _data_to_vector(
+			saved.get("grid_pos", {})
+		)
+
+		var target_grid = _data_to_vector(
+			saved.get("target_grid", {})
+		)
+
 		citizens.append({
 			"id": citizen_id,
 			"home_key": str(saved.get("home_key", "")),
-			"home_grid": _data_to_vector(
-				saved.get("home_grid", {})
-			),
-			"grid_pos": _data_to_vector(
-				saved.get("grid_pos", {})
-			),
-			"target_grid": _data_to_vector(
-				saved.get("target_grid", {})
-			),
+			"home_grid": home_grid,
+			"grid_pos": grid_pos,
+			"target_grid": target_grid,
+			"previous_grid": grid_pos,
 			"move_progress": float(
 				saved.get("move_progress", 0.0)
 			),

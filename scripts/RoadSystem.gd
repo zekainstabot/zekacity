@@ -98,8 +98,18 @@ func add_road(grid_pos, direction):
 	var world = get_node_or_null("../World")
 
 	if world != null and world.is_tile_occupied(grid_pos):
-		print("Cannot build a road on a building tile: ", grid_pos)
-		return false
+		print("ROAD BLOCKED AT: ", grid_pos)
+
+	for building in world.placed_buildings:
+		if building["grid"] == grid_pos:
+			print(
+				"BLOCKING BUILDING: ",
+				building["id"],
+				" | GRID: ",
+				building["grid"]
+			)
+
+	return false
 
 	for road in roads:
 		if road["grid"] == grid_pos and road["direction"] == direction:

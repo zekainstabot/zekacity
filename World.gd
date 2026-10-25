@@ -604,6 +604,11 @@ func _on_ConstructionMenu_id_pressed(id):
 
 
 func _place_building(building_id):
+	# Road must be placed through RoadSystem, not BuildingSystem.
+	if building_id == "road":
+		selected_building_for_placement = ""
+	_place_road(0)
+	return false
 	var grid_pos = Vector2(selected_x, selected_y)
 	var road_system = get_node_or_null("../RoadSystem")
 
