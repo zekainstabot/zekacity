@@ -1,3 +1,4 @@
+
 extends Node2D
 
 # ZekaCity - MountainSystem
@@ -13,6 +14,8 @@ var mountains = {}
 var mountain_size = 3
 var mine_cost = 1500
 var map_center = Vector2(600, 130)
+
+var mountain_texture = preload("res://BuildingImages/mountain.png")
 
 var rng = RandomNumberGenerator.new()
 
@@ -109,7 +112,12 @@ func _generate_mountains():
 			"mine_built": false
 		}
 
-		print("MOUNTAIN POSITION - ", mountain_id, ": ", origin)
+		print(
+			"MOUNTAIN POSITION - ",
+			mountain_id,
+			": ",
+			origin
+		)
 
 	if mountains.size() != 2:
 		push_error("MountainSystem: Could not place both mountains")
@@ -151,39 +159,58 @@ func _can_place_mountain(origin):
 	return true
 
 
+func _get_mountain_draw_data(mountain):
+	var center_grid = mountain["origin"] + Vector2(1, 1)
+	var center = world.grid_to_screen(center_grid, map_center)
+
+	var texture_size = mountain_texture.get_size()
+	var target_size = Vector2(150, 150)
+
+	var scale_factor = min(
+		target_size.x / texture_size.x,
+		target_size.y / texture_size.y
+	)
+
+	var draw_size = texture_size * scale_factor
+	var draw_pos = center - Vector2(
+		draw_size.x / 2.0,
+		draw_size.y
+	)
+
+	return {
+		"draw_pos": draw_pos,
+		"draw_size": draw_size
+	}
+
+
+func _get_pickaxe_position(mountain):
+	var draw_data = _get_mountain_draw_data(mountain)
+	var draw_pos = draw_data["draw_pos"]
+	var draw_size = draw_data["draw_size"]
+
+	# تغییر این اعداد، محل کلنگ روی کوه را تغییر می‌دهد.
+	return draw_pos + Vector2(
+		draw_size.x * 0.50,
+		draw_size.y * 0.55
+	)
+
+
 func _draw():
-	if world == null:
+	if world == null or mountain_texture == null:
 		return
 
 	for mountain_id in mountains.keys():
 		var mountain = mountains[mountain_id]
-		var center_grid = mountain["origin"] + Vector2(1, 1)
-		var center = world.grid_to_screen(center_grid, map_center)
+		var draw_data = _get_mountain_draw_data(mountain)
 
-		var is_iron = mountain["resource_id"] == "iron_ore"
-		var color = Color(0.48, 0.48, 0.48)
+		var draw_pos = draw_data["draw_pos"]
+		var draw_size = draw_data["draw_size"]
 
-		if is_iron:
-			color = Color(0.36, 0.32, 0.30)
-
-		var tile_w = world.tile_width * 0.65
-		var tile_h = world.tile_height * 0.65
-
-		var points = PoolVector2Array([
-			center + Vector2(0, -tile_h * 3.0),
-			center + Vector2(tile_w * 1.5, -tile_h),
-			center + Vector2(tile_w * 1.5, tile_h),
-			center + Vector2(0, tile_h * 2.0),
-			center + Vector2(-tile_w * 1.5, tile_h),
-			center + Vector2(-tile_w * 1.5, -tile_h)
-		])
-
-		draw_colored_polygon(points, color)
-		draw_polyline(
-			points,
-			Color(0.22, 0.22, 0.22),
-			2.0,
-			true
+		# رسم تصویر کوه
+		draw_texture_rect(
+			mountain_texture,
+			Rect2(draw_pos, draw_size),
+			false
 		)
 
 		var marker_pos = world.grid_to_screen(
@@ -191,18 +218,27 @@ func _draw():
 			map_center
 		)
 
+		var is_iron = mountain["resource_id"] == "iron_ore"
+
 		if mountain["mine_built"]:
 			_draw_mine(marker_pos, is_iron)
 		else:
-			draw_circle(
-				marker_pos,
-				8.0,
-				Color(1.0, 0.78, 0.15)
+			var pickaxe_pos = _get_pickaxe_position(mountain)
+
+			# دسته چوبی کلنگ
+			draw_line(
+				pickaxe_pos + Vector2(-5, 7),
+				pickaxe_pos + Vector2(6, -7),
+				Color(0.40, 0.23, 0.12),
+				4.0
 			)
-			draw_circle(
-				marker_pos,
-				4.0,
-				Color(0.25, 0.18, 0.05)
+
+			# سر فلزی کلنگ
+			draw_line(
+				pickaxe_pos + Vector2(-10, -6),
+				pickaxe_pos + Vector2(9, -9),
+				Color(0.75, 0.78, 0.82),
+				5.0
 			)
 
 
@@ -233,6 +269,7 @@ func _draw_mine(pos, is_iron):
 	])
 
 	draw_colored_polygon(building, base_color)
+
 	draw_polyline(
 		building,
 		Color(0.12, 0.12, 0.12),

@@ -31,6 +31,7 @@ const BUILDING_IMAGE_PATHS = {
 	"small_warehouse": "res://BuildingImages/small_warehouse.png",
 	"medium_warehouse": "res://BuildingImages/medium_warehouse.png",
 	"large_warehouse": "res://BuildingImages/medium_warehouse.png",
+	"power_station": "res://BuildingImages/power_station.png",
 	"huge_warehouse": "res://BuildingImages/medium_warehouse.png"
 }
 

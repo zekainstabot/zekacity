@@ -20,7 +20,7 @@ const BUILDING_TARGET_SIZE = Vector2(64, 64)
 const GROUND_OFFSET_Y = 0.0
 
 # تنظیم جداگانه خانه کوچک
-const SMALL_HOUSE_OFFSET_Y = 8.0
+const SMALL_HOUSE_OFFSET_Y = 0.0
 
 const BUILDING_IMAGE_PATHS = {
 	"small_house": "res://BuildingImages/small_house.png",
@@ -43,7 +43,8 @@ const BUILDING_IMAGE_PATHS = {
 	"small_warehouse": "res://BuildingImages/small_warehouse.png",
 	"medium_warehouse": "res://BuildingImages/medium_warehouse.png",
 	"large_warehouse": "res://BuildingImages/medium_warehouse.png",
-	"huge_warehouse": "res://BuildingImages/medium_warehouse.png"
+	"huge_warehouse": "res://BuildingImages/medium_warehouse.png",
+	"power_station": "res://BuildingImages/power_station.png"
 }
 
 
