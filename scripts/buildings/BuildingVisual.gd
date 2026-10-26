@@ -13,10 +13,40 @@ var has_visible_bounds = false
 var visible_bounds = Rect2()
 
 
+
 func setup(p_world, p_building_id, p_grid_pos):
 	world = p_world
 	building_id = p_building_id
 	grid_pos = p_grid_pos
+
+	# Load the actual building image.
+	var texture_paths = {
+		"small_house": "res://BuildingImages/small_house.png",
+		"normal_house": "res://BuildingImages/normal_house.png",
+		"low_apartment": "res://BuildingImages/low_apartment.png",
+		"high_apartment": "res://BuildingImages/high_apartment.png",
+		"residential_tower": "res://BuildingImages/residential_tower.png",
+		"grocery_store": "res://BuildingImages/grocery_store.png",
+		"bakery": "res://BuildingImages/bakery.png",
+		"restaurant": "res://BuildingImages/restaurant.png",
+		"office": "res://BuildingImages/office.png",
+		"shopping_mall": "res://BuildingImages/shopping_mall.png",
+		"factory": "res://BuildingImages/factory.png",
+		"mineral_market": "res://BuildingImages/mineral_market.png"
+	}
+
+	building_texture = null
+
+	if texture_paths.has(building_id):
+		var texture_path = texture_paths[building_id]
+
+		if ResourceLoader.exists(texture_path):
+			building_texture = load(texture_path)
+		else:
+			push_warning("Building texture not found: " + texture_path)
+
+	if building_texture == null:
+		push_warning("No texture loaded for building: " + building_id)
 
 	var footprint = Vector2.ONE
 

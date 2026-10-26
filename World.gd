@@ -468,13 +468,10 @@ func _refresh_building_visuals():
 		)
 
 		visual.setup(
-			self,
-			building["id"],
-			building["grid"],
-			i,
-			alpha
-		)
-
+	self,
+	building["id"],
+	building["grid"]
+)
 
 # =========================================
 # BUILDING DRAW DISPATCHER
