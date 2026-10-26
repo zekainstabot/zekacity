@@ -1,10 +1,5 @@
 extends Node2D
 
-const BuildingAlignment = preload(
-	"res://scripts/buildings/BuildingAlignment.gd"
-)
-
-const BUILDING_TARGET_SIZE = Vector2(64, 64)
 const GROUND_OFFSET_Y = 0.0
 const SMALL_HOUSE_OFFSET_Y = 0.0
 
@@ -31,15 +26,19 @@ func setup(p_world, p_building_id, p_grid_pos):
 		)
 
 	var visual_grid_pos = grid_pos + Vector2(
-	(footprint.x - 1.0) / 2.0,
-	(footprint.y - 1.0) / 2.0
-)
+		(footprint.x - 1.0) / 2.0,
+		(footprint.y - 1.0) / 2.0
+	)
 
 	if world != null:
 		position = world.grid_to_screen(
 			visual_grid_pos,
 			Vector2(600, 130)
 		)
+
+		z_index = int(round(
+			visual_grid_pos.x + visual_grid_pos.y
+		))
 
 	update()
 
@@ -62,14 +61,14 @@ func _draw():
 			)
 
 		var target_size = Vector2(
-	max(64.0, (footprint.x + footprint.y) * 32.0),
-	max(64.0, (footprint.x + footprint.y) * 24.0)
-)
+			max(64.0, (footprint.x + footprint.y) * 32.0),
+			max(64.0, (footprint.x + footprint.y) * 24.0)
+		)
 
 		var scale_factor = min(
-	target_size.x / texture_size.x,
-	target_size.y / texture_size.y
-)
+			target_size.x / texture_size.x,
+			target_size.y / texture_size.y
+		)
 
 		var anchor_x = texture_size.x / 2.0
 		var anchor_y = texture_size.y

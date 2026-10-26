@@ -599,20 +599,17 @@ func _on_ConstructionMenu_id_pressed(id):
 # =========================================
 # PLACING BUILDINGS
 # =========================================
-
-
-
-
 func _place_building(building_id):
-	# Road must be placed through RoadSystem, not BuildingSystem.
+	# Roads must be placed through RoadSystem.
 	if building_id == "road":
 		selected_building_for_placement = ""
-	_place_road(0)
-	return false
+		_place_road(0)
+		return false
+
 	var grid_pos = Vector2(selected_x, selected_y)
 	var road_system = get_node_or_null("../RoadSystem")
 
-	# Check the selected tile first, then its 4 direct neighbors.
+	# Check the selected tile and its 4 direct neighbors.
 	var candidate_positions = [
 		grid_pos,
 		grid_pos + Vector2(1, 0),
@@ -639,7 +636,6 @@ func _place_building(building_id):
 			found_position = true
 			break
 
-	# Cancel construction if no valid position exists.
 	if not found_position:
 		print("BUILDING PLACEMENT CANCELLED: No valid adjacent tile.")
 		selected_building_for_placement = ""
@@ -654,7 +650,6 @@ func _place_building(building_id):
 		"res://scripts/BuildingData.gd"
 	)
 
-	# Validate the building ID and population requirements.
 	var required_population = 0
 
 	if BuildingData.BUILDINGS.has(building_id):
@@ -687,7 +682,6 @@ func _place_building(building_id):
 		)
 		return false
 
-	# Determine construction cost.
 	var building_cost = 0
 
 	if StorageDefinitions.has_warehouse(building_id):
@@ -703,7 +697,6 @@ func _place_building(building_id):
 		print("BUILDING PLACEMENT FAILED: INVALID_COST")
 		return false
 
-	# Check available money.
 	if not city_treasury.can_afford(building_cost):
 		print(
 			"NOT ENOUGH MONEY. Cost: $",
@@ -713,13 +706,11 @@ func _place_building(building_id):
 		)
 		return false
 
-	# Charge the city only after a valid location is found.
 	if building_cost > 0:
 		if not city_treasury.spend(building_cost):
 			print("BUILDING PLACEMENT FAILED: PAYMENT_FAILED")
 			return false
 
-	# Place the building at the selected or nearby valid position.
 	placed_buildings.append({
 		"grid": grid_pos,
 		"id": building_id
@@ -728,14 +719,12 @@ func _place_building(building_id):
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
 
-	# Synchronize warehouses and residents.
 	storage_system.sync_warehouses(placed_buildings)
 
 	if citizen_system != null:
 		citizen_system.sync_residents()
 		_update_population_label()
 
-	# Reset placement state and refresh the world.
 	selected_building_for_placement = ""
 	road_placement_direction = -1
 
@@ -752,11 +741,9 @@ func _place_building(building_id):
 		building_cost
 	)
 
-	# Save the updated city.
 	save_system.save_world(self)
 
 	return true
-
 
 # =========================================
 # PLACING ROADS
