@@ -24,6 +24,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y unzip wget zip
 
+      - name: Configure Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify Java
+        run: |
+          java -version
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
       - name: Download Godot 3.6.3
         shell: bash
         run: |
@@ -42,7 +61,7 @@ jobs:
 
           if [ ! -f "$GODOT_BIN" ]; then
             echo "ERROR: Godot executable not found."
-            find "$GODOT_DIR" -maxdepth 2 -type f
+            find "$GODOT_DIR" -maxdepth 3 -type f
             exit 1
           fi
 
@@ -50,19 +69,6 @@ jobs:
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
 
           "$GODOT_BIN" --version
-
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-
-      - name: Configure Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
 
       - name: Download Godot export templates
         shell: bash
@@ -76,7 +82,8 @@ jobs:
             "https://github.com/godotengine/godot-builds/releases/download/3.6.3-stable/Godot_v3.6.3-stable_export_templates.tpz" \
             -O "$RUNNER_TEMP/templates.tpz"
 
-          unzip -o "$RUNNER_TEMP/templates.tpz" -d "$RUNNER_TEMP/templates"
+          unzip -o "$RUNNER_TEMP/templates.tpz" \
+            -d "$RUNNER_TEMP/templates"
 
           TEMPLATE_SOURCE="$RUNNER_TEMP/templates/templates"
 
@@ -88,7 +95,7 @@ jobs:
 
           cp -a "$TEMPLATE_SOURCE/." "$TEMPLATE_DIR/"
 
-          echo "Installed export templates:"
+          echo "Export templates installed:"
           ls -lah "$TEMPLATE_DIR"
 
       - name: Prepare Android signing key
@@ -117,54 +124,61 @@ jobs:
           set -euo pipefail
 
           if [ ! -f "export_presets.cfg" ]; then
-            echo "ERROR: export_presets.cfg not found in repository root."
+            echo "ERROR: export_presets.cfg not found."
             exit 1
           fi
 
           python3 - <<'PY'
           from pathlib import Path
+          import os
           import re
 
           path = Path("export_presets.cfg")
           text = path.read_text(encoding="utf-8")
 
-          sections = list(re.finditer(r"(?m)^\[preset\.\d+\]\s*$", text))
-          android_section = None
+          matches = list(
+              re.finditer(r"(?m)^\[preset\.\d+\]\s*$", text)
+          )
 
-          for i, match in enumerate(sections):
-              end = sections[i + 1].start() if i + 1 < len(sections) else len(text)
+          found = False
+
+          for i, match in enumerate(matches):
+              end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
               section = text[match.start():end]
-              if re.search(r'(?m)^platform="Android"\s*$', section):
-                  android_section = (match.start(), end, section)
-                  break
 
-          if android_section is None:
+              if not re.search(r'(?m)^platform="Android"\s*$', section):
+                  continue
+
+              values = {
+                  "keystore/debug": os.environ["ANDROID_KEYSTORE"],
+                  "keystore/debug_user": "androiddebugkey",
+                  "keystore/debug_password": "android",
+              }
+
+              for key, value in values.items():
+                  line = f'{key}="{value}"'
+                  pattern = rf'(?m)^{re.escape(key)}=.*$'
+
+                  if re.search(pattern, section):
+                      section = re.sub(
+                          pattern,
+                          lambda _: line,
+                          section
+                      )
+                  else:
+                      section = section.rstrip() + "\n" + line + "\n"
+
+              text = text[:match.start()] + section + text[end:]
+              found = True
+              break
+
+          if not found:
               raise SystemExit(
-                  'ERROR: No Android export preset found in export_presets.cfg.'
+                  'ERROR: No Android preset found in export_presets.cfg.'
               )
 
-          start, end, section = android_section
-
-          values = {
-              "custom_template/release": "",
-              "custom_template/debug": "",
-              "keystore/debug": str(__import__("os").environ["ANDROID_KEYSTORE"]),
-              "keystore/debug_user": "androiddebugkey",
-              "keystore/debug_password": "android",
-          }
-
-          for key, value in values.items():
-              line = f'{key}="{value}"'
-              pattern = rf'(?m)^{re.escape(key)}=.*$'
-
-              if re.search(pattern, section):
-                  section = re.sub(pattern, lambda _: line, section)
-              else:
-                  section = section.rstrip() + "\n" + line + "\n"
-
-          text = text[:start] + section + text[end:]
           path.write_text(text, encoding="utf-8")
-          print("Android export preset configured.")
+          print("Android signing configuration updated.")
           PY
 
       - name: Import project resources
@@ -188,40 +202,40 @@ jobs:
           cat "$IMPORT_LOG"
 
           if [ "$IMPORT_EXIT" -ne 0 ]; then
-            echo "ERROR: Godot import failed or timed out. Exit code: $IMPORT_EXIT"
+            echo "ERROR: Godot import failed. Exit code: $IMPORT_EXIT"
             exit "$IMPORT_EXIT"
           fi
 
-      - name: Validate Android export preset
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          "$GODOT_BIN" \
-            --path "$GITHUB_WORKSPACE" \
-            --headless \
-            --export-debug \
-            "Android" \
-            "$RUNNER_TEMP/validation.apk" \
-            2>&1 | tee "$RUNNER_TEMP/export-validation.log" || {
-              echo "ERROR: Android export failed."
-              exit 1
-            }
-
-          if [ ! -s "$RUNNER_TEMP/validation.apk" ]; then
-            echo "ERROR: Godot did not produce an APK."
-            exit 1
-          fi
-
-      - name: Copy APK
+      - name: Export Android APK
         shell: bash
         run: |
           set -euo pipefail
 
           mkdir -p "$GITHUB_WORKSPACE/build"
+          EXPORT_LOG="$RUNNER_TEMP/godot-export.log"
 
-          cp "$RUNNER_TEMP/validation.apk" \
-            "$GITHUB_WORKSPACE/build/ZekaCity-Android.apk"
+          set +e
+          "$GODOT_BIN" \
+            --path "$GITHUB_WORKSPACE" \
+            --headless \
+            --export-debug \
+            "Android" \
+            "$GITHUB_WORKSPACE/build/ZekaCity-Android.apk" \
+            > "$EXPORT_LOG" 2>&1
+          EXPORT_EXIT=$?
+          set -e
+
+          cat "$EXPORT_LOG"
+
+          if [ "$EXPORT_EXIT" -ne 0 ]; then
+            echo "ERROR: Android APK export failed."
+            exit "$EXPORT_EXIT"
+          fi
+
+          if [ ! -s "$GITHUB_WORKSPACE/build/ZekaCity-Android.apk" ]; then
+            echo "ERROR: APK was not created."
+            exit 1
+          fi
 
           ls -lh "$GITHUB_WORKSPACE/build/ZekaCity-Android.apk"
 
