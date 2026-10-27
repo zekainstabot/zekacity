@@ -4,7 +4,13 @@ extends CanvasLayer
 signal building_action_selected(action_id)
 signal market_sell_requested(resource_id, amount)
 
+const EDGE_MARGIN = 12
+const TOP_MARGIN = 100
+const PANEL_MAX_WIDTH = 460
+const BUTTON_HEIGHT = 68
+
 var panel = null
+var scroll = null
 var title_label = null
 var storage_info_label = null
 var market_stone_button = null
@@ -17,33 +23,44 @@ var close_button = null
 
 func _ready():
 	_build_panel()
+	get_viewport().connect("size_changed", self, "_on_viewport_size_changed")
 
 
 func _build_panel():
 	panel = PanelContainer.new()
 	panel.name = "BuildingActionPanel"
-	panel.rect_position = Vector2(20, 110)
-	panel.rect_min_size = Vector2(460, 0)
 	panel.visible = false
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 
+	scroll = ScrollContainer.new()
+	scroll.name = "ActionScroll"
+	scroll.rect_min_size = Vector2(0, 0)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.add_child(scroll)
+
 	var layout = VBoxContainer.new()
-	layout.add_constant_override("separation", 16)
-	panel.add_child(layout)
+	layout.add_constant_override("separation", 10)
+	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(layout)
 
 	title_label = Label.new()
 	title_label.text = "Building Actions"
 	title_label.align = Label.ALIGN_CENTER
-	title_label.rect_min_size = Vector2(420, 68)
-	title_label.add_font_override("font", _make_font(30))
+	title_label.autowrap = true
+	title_label.rect_min_size = Vector2(0, 58)
+	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_label.add_font_override("font", _make_font(26))
 	layout.add_child(title_label)
 
 	storage_info_label = Label.new()
 	storage_info_label.name = "StorageInfoLabel"
 	storage_info_label.autowrap = true
-	storage_info_label.rect_min_size = Vector2(420, 180)
-	storage_info_label.add_font_override("font", _make_font(24))
+	storage_info_label.rect_min_size = Vector2(0, 100)
 	storage_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	storage_info_label.add_font_override("font", _make_font(21))
 	storage_info_label.visible = false
 	layout.add_child(storage_info_label)
 
@@ -58,6 +75,8 @@ func _build_panel():
 	move_button = _create_button(layout, "Move Building", 2)
 	demolish_button = _create_button(layout, "Demolish Building", 3)
 	close_button = _create_button(layout, "Close", 4)
+
+	_update_panel_layout()
 
 
 func _make_font(font_size):
@@ -74,9 +93,11 @@ func _make_font(font_size):
 func _create_button(container, button_text, action_id):
 	var button = Button.new()
 	button.text = button_text
-	button.rect_min_size = Vector2(420, 88)
-	button.add_font_override("font", _make_font(25))
+	button.rect_min_size = Vector2(0, BUTTON_HEIGHT)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_font_override("font", _make_font(22))
 	container.add_child(button)
 	button.connect("pressed", self, "_on_action_button_pressed", [action_id])
 	return button
@@ -85,13 +106,46 @@ func _create_button(container, button_text, action_id):
 func _create_market_button(container, button_text, resource_id):
 	var button = Button.new()
 	button.text = button_text
-	button.rect_min_size = Vector2(420, 80)
-	button.add_font_override("font", _make_font(24))
+	button.rect_min_size = Vector2(0, BUTTON_HEIGHT)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_font_override("font", _make_font(21))
 	button.visible = false
 	container.add_child(button)
 	button.connect("pressed", self, "_on_market_button_pressed", [resource_id])
 	return button
+
+
+func _update_panel_layout():
+	if panel == null:
+		return
+
+	var viewport_size = get_viewport().get_visible_rect().size
+	var available_width = max(220, viewport_size.x - EDGE_MARGIN * 2)
+	var panel_width = min(PANEL_MAX_WIDTH, available_width)
+	var available_height = max(180, viewport_size.y - TOP_MARGIN - EDGE_MARGIN)
+
+	panel.rect_size = Vector2(panel_width, 0)
+	panel.rect_min_size = Vector2(panel_width, 0)
+	panel.rect_position = Vector2(
+		(viewport_size.x - panel_width) / 2.0,
+		TOP_MARGIN
+	)
+
+	panel.rect_size.y = min(
+		max(available_height, 180),
+		viewport_size.y - TOP_MARGIN - EDGE_MARGIN
+	)
+
+	if scroll != null:
+		scroll.rect_min_size = Vector2(
+			max(0, panel_width - 24),
+			max(160, panel.rect_size.y - 20)
+		)
+
+
+func _on_viewport_size_changed():
+	_update_panel_layout()
 
 
 func show_for_building(building_name, target_world = null, building_id = ""):
@@ -104,7 +158,9 @@ func show_for_building(building_name, target_world = null, building_id = ""):
 	if building_id == "" and target_world != null:
 		var index = target_world.selected_building_index
 		if index >= 0 and index < target_world.placed_buildings.size():
-			building_id = str(target_world.placed_buildings[index].get("id", ""))
+			building_id = str(
+				target_world.placed_buildings[index].get("id", "")
+			)
 
 	if target_world != null and (
 		_is_warehouse(building_id) or _is_warehouse(building_name)
@@ -137,6 +193,7 @@ func show_for_building(building_name, target_world = null, building_id = ""):
 
 		storage_info_label.visible = true
 
+	_update_panel_layout()
 	panel.visible = true
 	panel.raise()
 

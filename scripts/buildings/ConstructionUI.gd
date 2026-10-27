@@ -3,12 +3,16 @@ extends Control
 
 signal building_confirmed(building_id)
 
-const MENU_WIDTH = 620
-const MENU_HEIGHT = 390
-const CARD_WIDTH = 142
-const CARD_HEIGHT = 200
-const EDGE_MARGIN = 16
-const IMAGE_SIZE = Vector2(104, 94)
+const EDGE_MARGIN = 12
+const MENU_WIDTH_RATIO = 0.96
+const MENU_HEIGHT_RATIO = 0.78
+
+const CARD_WIDTH = 168
+const CARD_HEIGHT = 252
+const IMAGE_SIZE = Vector2(112, 88)
+
+const TOUCH_BUTTON_HEIGHT = 52
+const CATEGORY_BUTTON_WIDTH = 120
 
 const BUILDING_IMAGE_PATHS = {
 	"small_house": "res://BuildingImages/small_house.png",
@@ -37,38 +41,38 @@ const BUILDING_IMAGE_PATHS = {
 }
 
 const BUILDING_ICONS = {
-	"road": "🛣",
-	"small_house": "⌂",
-	"normal_house": "⌂",
-	"low_apartment": "▥",
-	"high_apartment": "▥",
-	"residential_tower": "▥",
-	"grocery_store": "▣",
-	"bakery": "♨",
-	"restaurant": "♨",
-	"office": "▤",
-	"shopping_mall": "▦",
-	"factory": "⚙",
-	"mineral_market": "⛏",
-	"water_tower": "♨",
-	"power_station": "ϟ",
-	"sewage_plant": "≋",
-	"waste_facility": "♻",
-	"school": "✎",
-	"university": "✎",
-	"clinic": "+",
-	"hospital": "+",
-	"police_station": "★",
-	"fire_station": "♨",
-	"city_hall": "⌂",
-	"small_park": "♣",
-	"playground": "⚽",
-	"sports_center": "⚽",
-	"cultural_center": "♪",
-	"small_warehouse": "▧",
-	"medium_warehouse": "▧",
-	"large_warehouse": "▧",
-	"huge_warehouse": "▧"
+	"road": "Road",
+	"small_house": "House",
+	"normal_house": "House",
+	"low_apartment": "Apartments",
+	"high_apartment": "Apartments",
+	"residential_tower": "Tower",
+	"grocery_store": "Shop",
+	"bakery": "Bakery",
+	"restaurant": "Restaurant",
+	"office": "Office",
+	"shopping_mall": "Mall",
+	"factory": "Factory",
+	"mineral_market": "Market",
+	"water_tower": "Water",
+	"power_station": "Power",
+	"sewage_plant": "Sewage",
+	"waste_facility": "Waste",
+	"school": "School",
+	"university": "University",
+	"clinic": "Clinic",
+	"hospital": "Hospital",
+	"police_station": "Police",
+	"fire_station": "Fire",
+	"city_hall": "City Hall",
+	"small_park": "Park",
+	"playground": "Playground",
+	"sports_center": "Sports",
+	"cultural_center": "Culture",
+	"small_warehouse": "Warehouse",
+	"medium_warehouse": "Warehouse",
+	"large_warehouse": "Warehouse",
+	"huge_warehouse": "Warehouse"
 }
 
 var selected_category = "All"
@@ -80,7 +84,13 @@ var main_panel = null
 var main_vbox = null
 var category_container = null
 var building_container = null
+var category_scroll = null
+var building_scroll = null
 var info_label = null
+
+var touch_scroll_index = -1
+var touch_scroll_target = null
+var touch_scroll_last_position = Vector2.ZERO
 
 var building_footprints = preload(
 	"res://scripts/buildings/BuildingFootprints.gd"
@@ -94,6 +104,14 @@ func _ready():
 
 	_load_buildings()
 	_build_ui()
+	_update_panel_size()
+
+	get_viewport().connect(
+		"size_changed",
+		self,
+		"_on_viewport_size_changed"
+	)
+
 	hide()
 
 
@@ -101,7 +119,9 @@ func _load_buildings():
 	buildings.clear()
 
 	if not BuildingData.has_method("get_all_buildings"):
-		push_error("ConstructionUI: BuildingData.get_all_buildings() not found")
+		push_error(
+			"ConstructionUI: BuildingData.get_all_buildings() not found"
+		)
 		return
 
 	var all_data = BuildingData.get_all_buildings()
@@ -121,9 +141,11 @@ func _load_buildings():
 
 		var item = data.duplicate(true)
 		item["id"] = str(building_id)
-		item["icon"] = BUILDING_ICONS.get(str(building_id), "◆")
+		item["icon"] = BUILDING_ICONS.get(
+			str(building_id),
+			"Building"
+		)
 		buildings.append(item)
-
 
 
 func _make_font(font_size):
@@ -140,7 +162,6 @@ func _make_font(font_size):
 	font.size = font_size
 
 	font_cache[font_size] = font
-
 	return font
 
 
@@ -154,18 +175,13 @@ func _apply_font(control, font_size):
 func _build_ui():
 	main_panel = Panel.new()
 	main_panel.name = "ConstructionPanel"
-	main_panel.rect_min_size = Vector2(MENU_WIDTH, MENU_HEIGHT)
 	main_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	main_panel.clip_contents = true
 
-	main_panel.anchor_left = 1.0
-	main_panel.anchor_right = 1.0
+	main_panel.anchor_left = 0.5
+	main_panel.anchor_right = 0.5
 	main_panel.anchor_top = 1.0
 	main_panel.anchor_bottom = 1.0
-
-	main_panel.margin_left = -MENU_WIDTH - EDGE_MARGIN
-	main_panel.margin_right = -EDGE_MARGIN
-	main_panel.margin_top = -MENU_HEIGHT - EDGE_MARGIN
-	main_panel.margin_bottom = -EDGE_MARGIN
 
 	add_child(main_panel)
 
@@ -184,24 +200,25 @@ func _build_ui():
 	main_panel.add_child(main_vbox)
 
 	var title = Label.new()
+	title.name = "ConstructionTitle"
 	title.text = "Construction"
 	title.align = Label.ALIGN_CENTER
-	title.rect_min_size = Vector2(0, 26)
+	title.rect_min_size = Vector2(0, 30)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_apply_font(title, 18)
 	main_vbox.add_child(title)
 
-	var category_scroll = ScrollContainer.new()
+	category_scroll = ScrollContainer.new()
 	category_scroll.name = "CategoryScroll"
-	category_scroll.rect_min_size = Vector2(0, 34)
+	category_scroll.rect_min_size = Vector2(0, 54)
 	category_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	category_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
 	main_vbox.add_child(category_scroll)
 
 	category_container = HBoxContainer.new()
 	category_container.name = "CategoryContainer"
-	category_container.add_constant_override("separation", 5)
-	category_container.mouse_filter = Control.MOUSE_FILTER_STOP
+	category_container.add_constant_override("separation", 8)
+	category_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	category_scroll.add_child(category_container)
 
 	_create_category_button("All")
@@ -209,7 +226,9 @@ func _build_ui():
 	var categories = []
 
 	for building in buildings:
-		var category_name = str(building.get("category", "Other"))
+		var category_name = str(
+			building.get("category", "Other")
+		)
 
 		if not category_name in categories:
 			categories.append(category_name)
@@ -219,7 +238,7 @@ func _build_ui():
 	for category_name in categories:
 		_create_category_button(category_name)
 
-	var building_scroll = ScrollContainer.new()
+	building_scroll = ScrollContainer.new()
 	building_scroll.name = "BuildingScroll"
 	building_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	building_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -229,38 +248,101 @@ func _build_ui():
 	building_container = HBoxContainer.new()
 	building_container.name = "BuildingContainer"
 	building_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	building_container.add_constant_override("separation", 8)
-	building_container.mouse_filter = Control.MOUSE_FILTER_STOP
+	building_container.add_constant_override("separation", 10)
+	building_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	building_scroll.add_child(building_container)
 
 	info_label = Label.new()
 	info_label.name = "InfoLabel"
 	info_label.text = "Choose a building"
 	info_label.align = Label.ALIGN_CENTER
-	info_label.rect_min_size = Vector2(0, 22)
+	info_label.autowrap = true
+	info_label.rect_min_size = Vector2(0, 26)
 	info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_apply_font(info_label, 12)
+	_apply_font(info_label, 13)
 	main_vbox.add_child(info_label)
 
 	var footer = HBoxContainer.new()
 	footer.name = "Footer"
 	footer.alignment = BoxContainer.ALIGN_CENTER
-	footer.add_constant_override("separation", 12)
+	footer.add_constant_override("separation", 14)
+	footer.rect_min_size = Vector2(0, 54)
 	main_vbox.add_child(footer)
 
 	var cancel_button = Button.new()
+	cancel_button.name = "CancelButton"
 	cancel_button.text = "Cancel"
-	cancel_button.rect_min_size = Vector2(100, 28)
-	cancel_button.connect("pressed", self, "_on_cancel_pressed")
+	cancel_button.rect_min_size = Vector2(130, TOUCH_BUTTON_HEIGHT)
+	cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cancel_button.focus_mode = Control.FOCUS_NONE
+	_apply_font(cancel_button, 16)
+	cancel_button.connect(
+		"pressed",
+		self,
+		"_on_cancel_pressed"
+	)
 	footer.add_child(cancel_button)
 
 	var build_button = Button.new()
+	build_button.name = "BuildButton"
 	build_button.text = "Build"
-	build_button.rect_min_size = Vector2(100, 28)
-	build_button.connect("pressed", self, "_on_build_pressed")
+	build_button.rect_min_size = Vector2(130, TOUCH_BUTTON_HEIGHT)
+	build_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	build_button.focus_mode = Control.FOCUS_NONE
+	_apply_font(build_button, 16)
+	build_button.connect(
+		"pressed",
+		self,
+		"_on_build_pressed"
+	)
 	footer.add_child(build_button)
 
 	_refresh_building_cards()
+
+
+func _update_panel_size():
+	if main_panel == null:
+		return
+
+	var viewport_size = get_viewport_rect().size
+
+	var panel_width = min(
+		viewport_size.x * MENU_WIDTH_RATIO,
+		viewport_size.x - EDGE_MARGIN * 2
+	)
+
+	var panel_height = min(
+		viewport_size.y * MENU_HEIGHT_RATIO,
+		viewport_size.y - EDGE_MARGIN * 2
+	)
+
+	panel_width = max(1, panel_width)
+	panel_height = max(1, panel_height)
+
+	main_panel.anchor_left = 0.5
+	main_panel.anchor_right = 0.5
+	main_panel.anchor_top = 1.0
+	main_panel.anchor_bottom = 1.0
+
+	main_panel.margin_left = -panel_width / 2.0
+	main_panel.margin_right = panel_width / 2.0
+	main_panel.margin_top = -panel_height - EDGE_MARGIN
+	main_panel.margin_bottom = -EDGE_MARGIN
+
+	main_panel.rect_min_size = Vector2(
+		panel_width,
+		panel_height
+	)
+
+	main_panel.rect_size = Vector2(
+		panel_width,
+		panel_height
+	)
+
+
+func _on_viewport_size_changed():
+	rect_size = get_viewport_rect().size
+	_update_panel_size()
 
 
 func open_menu():
@@ -270,7 +352,14 @@ func open_menu():
 	if info_label != null:
 		info_label.text = "Choose a building"
 
+	if category_scroll != null:
+		category_scroll.scroll_horizontal = 0
+
+	if building_scroll != null:
+		building_scroll.scroll_horizontal = 0
+
 	_refresh_building_cards()
+
 	show()
 	main_panel.show()
 	raise()
@@ -278,9 +367,15 @@ func open_menu():
 
 func _create_category_button(category_name):
 	var button = Button.new()
+	button.name = "Category_" + category_name.replace(" ", "_")
 	button.text = category_name
-	button.rect_min_size = Vector2(100, 28)
+	button.rect_min_size = Vector2(
+		CATEGORY_BUTTON_WIDTH,
+		TOUCH_BUTTON_HEIGHT
+	)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.focus_mode = Control.FOCUS_NONE
+	_apply_font(button, 14)
 
 	button.connect(
 		"pressed",
@@ -313,30 +408,39 @@ func _refresh_building_cards():
 		child.queue_free()
 
 	for building in buildings:
-		var category_name = str(building.get("category", "Other"))
+		var category_name = str(
+			building.get("category", "Other")
+		)
 
-		if selected_category != "All" and category_name != selected_category:
+		if (
+			selected_category != "All"
+			and category_name != selected_category
+		):
 			continue
 
 		var building_id = str(building["id"])
 
 		var card = PanelContainer.new()
 		card.name = building_id + "_Card"
-		card.rect_min_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
+		card.rect_min_size = Vector2(
+			CARD_WIDTH,
+			CARD_HEIGHT
+		)
 		card.size_flags_horizontal = Control.SIZE_FILL
-		card.mouse_filter = Control.MOUSE_FILTER_STOP
+		card.mouse_filter = Control.MOUSE_FILTER_PASS
 		building_container.add_child(card)
 
 		var card_vbox = VBoxContainer.new()
-		card_vbox.add_constant_override("separation", 3)
+		card_vbox.add_constant_override("separation", 2)
 		card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		card_vbox.mouse_filter = Control.MOUSE_FILTER_STOP
+		card_vbox.mouse_filter = Control.MOUSE_FILTER_PASS
 		card.add_child(card_vbox)
 
 		var image_holder = CenterContainer.new()
-		image_holder.rect_min_size = Vector2(0, IMAGE_SIZE.y)
-		image_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		image_holder.rect_min_size = Vector2(
+			0,
+			IMAGE_SIZE.y
+		)
 		image_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(image_holder)
 
@@ -354,31 +458,39 @@ func _refresh_building_cards():
 		else:
 			var fallback_label = Label.new()
 			fallback_label.name = "BuildingImageFallback"
-			fallback_label.text = str(building.get("icon", "◆"))
+			fallback_label.text = str(
+				building.get("icon", "Building")
+			)
 			fallback_label.align = Label.ALIGN_CENTER
 			fallback_label.valign = Label.VALIGN_CENTER
+			fallback_label.autowrap = true
 			fallback_label.rect_min_size = IMAGE_SIZE
 			fallback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_apply_font(fallback_label, 34)
+			_apply_font(fallback_label, 15)
 			image_holder.add_child(fallback_label)
 
 		var name_label = Label.new()
-		name_label.text = str(building.get("name", building_id))
+		name_label.name = "BuildingName"
+		name_label.text = str(
+			building.get("name", building_id)
+		)
 		name_label.align = Label.ALIGN_CENTER
 		name_label.valign = Label.VALIGN_CENTER
 		name_label.autowrap = true
 		name_label.rect_min_size = Vector2(0, 34)
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_apply_font(name_label, 11)
+		_apply_font(name_label, 12)
 		card_vbox.add_child(name_label)
 
-		
 		var cost_label = Label.new()
-		cost_label.text = "Cost: " + str(building.get("cost", 0))
+		cost_label.name = "BuildingCost"
+		cost_label.text = "Cost: " + str(
+			building.get("cost", 0)
+		)
 		cost_label.align = Label.ALIGN_CENTER
-		cost_label.rect_min_size = Vector2(0, 18)
+		cost_label.rect_min_size = Vector2(0, 20)
 		cost_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_apply_font(cost_label, 11)
+		_apply_font(cost_label, 12)
 		card_vbox.add_child(cost_label)
 
 		var required_population = int(
@@ -387,34 +499,42 @@ func _refresh_building_cards():
 
 		var population_label = Label.new()
 		population_label.name = "RequiredPopulation"
-		population_label.text = "Required Pop: " + str(required_population)
+		population_label.text = "Required Pop: " + str(
+			required_population
+		)
 		population_label.align = Label.ALIGN_CENTER
-		population_label.rect_min_size = Vector2(0, 20)
-		population_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		population_label.autowrap = true
+		population_label.rect_min_size = Vector2(0, 22)
 		population_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_apply_font(population_label, 10)
+		_apply_font(population_label, 11)
 		card_vbox.add_child(population_label)
-		
+
 		var footprint = building_footprints.get_footprint(
 			building_id
 		)
-
 
 		var size_label = Label.new()
 		size_label.name = "BuildingSize"
 		size_label.text = (
 			str(int(footprint.x))
-			+ " × "
+			+ " x "
 			+ str(int(footprint.y))
 		)
 		size_label.align = Label.ALIGN_CENTER
-		size_label.rect_min_size = Vector2(0, 18)
+		size_label.rect_min_size = Vector2(0, 20)
 		size_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_apply_font(size_label, 11)
+		_apply_font(size_label, 12)
 		card_vbox.add_child(size_label)
 
 		var select_button = Button.new()
 		select_button.name = "BuildingButton"
+		select_button.rect_min_size = Vector2(
+			CARD_WIDTH - 12,
+			TOUCH_BUTTON_HEIGHT
+		)
+		select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		select_button.focus_mode = Control.FOCUS_NONE
+		_apply_font(select_button, 14)
 
 		if selected_building_id == building_id:
 			select_button.text = "Selected"
@@ -428,9 +548,6 @@ func _refresh_building_cards():
 				[building_id]
 			)
 
-		select_button.rect_min_size = Vector2(CARD_WIDTH - 12, 26)
-		select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		select_button.focus_mode = Control.FOCUS_NONE
 		card_vbox.add_child(select_button)
 
 
@@ -440,6 +557,9 @@ func _on_category_pressed(category_name):
 
 	if info_label != null:
 		info_label.text = "Choose a building"
+
+	if building_scroll != null:
+		building_scroll.scroll_horizontal = 0
 
 	_refresh_building_cards()
 
@@ -467,6 +587,8 @@ func _on_cancel_pressed():
 	if info_label != null:
 		info_label.text = "Choose a building"
 
+	touch_scroll_target = null
+	touch_scroll_index = -1
 	hide()
 
 
@@ -475,5 +597,66 @@ func _on_build_pressed():
 		info_label.text = "Select a building first"
 		return
 
-	emit_signal("building_confirmed", selected_building_id)
+	var building_id = selected_building_id
+	touch_scroll_target = null
+	touch_scroll_index = -1
+
+	emit_signal("building_confirmed", building_id)
 	hide()
+
+
+func _input(event):
+	if not visible or main_panel == null:
+		return
+
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if not main_panel.get_global_rect().has_point(
+				event.position
+			):
+				return
+
+			touch_scroll_index = event.index
+			touch_scroll_last_position = event.position
+			touch_scroll_target = null
+
+			if (
+				category_scroll != null
+				and category_scroll.get_global_rect().has_point(
+					event.position
+				)
+			):
+				touch_scroll_target = category_scroll
+				return
+
+			if (
+				building_scroll != null
+				and building_scroll.get_global_rect().has_point(
+					event.position
+				)
+			):
+				touch_scroll_target = building_scroll
+				return
+
+		else:
+			if event.index == touch_scroll_index:
+				touch_scroll_index = -1
+				touch_scroll_target = null
+
+	elif event is InputEventScreenDrag:
+		if event.index != touch_scroll_index:
+			return
+
+		if touch_scroll_target == null:
+			return
+
+		var delta = event.position - touch_scroll_last_position
+
+		touch_scroll_target.scroll_horizontal = int(
+			max(
+				0,
+				touch_scroll_target.scroll_horizontal - delta.x
+			)
+		)
+
+		touch_scroll_last_position = event.position

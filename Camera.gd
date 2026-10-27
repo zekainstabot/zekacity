@@ -9,6 +9,7 @@ var zoom_max = 1.5
 var zoom_step = 0.08
 
 var touch_points = {}
+var ui_touch_points = {}
 var last_pinch_distance = 0.0
 
 
@@ -43,17 +44,15 @@ func _is_over_construction_panel(screen_position):
 
 
 func _input(event):
-	# Ignore camera mouse controls when interacting with
-	# the construction panel. Do not mark the event handled,
-	# so the UI can still receive its scroll input.
+	# -------------------------------
+	# Mouse controls
+	# -------------------------------
 	if event is InputEventMouseButton:
 		if _is_over_construction_panel(event.position):
 			if event.button_index == BUTTON_LEFT:
 				dragging = false
 			return
 
-	# Mouse controls for PC
-	if event is InputEventMouseButton:
 		if event.button_index == BUTTON_LEFT:
 			dragging = event.pressed
 
@@ -74,23 +73,56 @@ func _input(event):
 
 			global_position -= event.relative * zoom
 
-	# Touch controls for Android
+	# -------------------------------
+	# Android touch controls
+	# -------------------------------
 	elif event is InputEventScreenTouch:
 		if event.pressed:
+			# Touch began on the construction panel.
+			# Camera must ignore this finger until release.
+			if _is_over_construction_panel(event.position):
+				ui_touch_points[event.index] = true
+				dragging = false
+				return
+
 			touch_points[event.index] = event.position
 
-			if touch_points.size() == 2:
+			# Do not start camera movement while another
+			# finger is interacting with the UI.
+			if ui_touch_points.size() > 0:
+				dragging = false
+				return
+
+			if touch_points.size() >= 2:
 				last_pinch_distance = _get_pinch_distance()
 				dragging = false
+
 		else:
 			touch_points.erase(event.index)
+			ui_touch_points.erase(event.index)
 			last_pinch_distance = 0.0
-
-			if touch_points.size() == 1:
-				dragging = false
+			dragging = false
 
 	elif event is InputEventScreenDrag:
+		# Ignore fingers that started on the UI.
+		if ui_touch_points.has(event.index):
+			return
+
+		# Never move or zoom the camera while a finger
+		# is interacting with the construction UI.
+		if ui_touch_points.size() > 0:
+			return
+
 		if not touch_points.has(event.index):
+			return
+
+		# If a map gesture reaches the construction panel,
+		# stop camera movement for the rest of that gesture.
+		if _is_over_construction_panel(event.position):
+			ui_touch_points[event.index] = true
+			touch_points.erase(event.index)
+			dragging = false
+			last_pinch_distance = 0.0
 			return
 
 		var old_distance = last_pinch_distance
@@ -104,10 +136,14 @@ func _input(event):
 				var new_zoom = zoom * factor
 
 				new_zoom.x = clamp(
-					new_zoom.x, zoom_min, zoom_max
+					new_zoom.x,
+					zoom_min,
+					zoom_max
 				)
 				new_zoom.y = clamp(
-					new_zoom.y, zoom_min, zoom_max
+					new_zoom.y,
+					zoom_min,
+					zoom_max
 				)
 
 				zoom = new_zoom
@@ -121,7 +157,9 @@ func _input(event):
 func _apply_zoom(amount, screen_position):
 	var old_zoom = zoom.x
 	var new_zoom = clamp(
-		old_zoom + amount, zoom_min, zoom_max
+		old_zoom + amount,
+		zoom_min,
+		zoom_max
 	)
 
 	if is_equal_approx(old_zoom, new_zoom):

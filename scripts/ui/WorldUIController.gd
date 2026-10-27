@@ -34,25 +34,18 @@ func initialize(world_node, ui_node):
 func _create_treasury_label():
 	treasury_label = Label.new()
 	treasury_label.name = "MoneyLabel"
-
 	treasury_label.text = "Money: $" + str(
 		world.city_treasury.get_balance()
 	)
 
-	# Load the project's font and make the money text larger.
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
 	if ResourceLoader.exists(font_path):
 		var money_font = DynamicFont.new()
 		money_font.font_data = load(font_path)
-		money_font.size = 40
+		money_font.size = 26
 		treasury_label.add_font_override("font", money_font)
-	else:
-		push_warning(
-			"Money font not found: " + font_path
-		)
 
-	# Yellow text without a shadow.
 	treasury_label.add_color_override(
 		"font_color",
 		Color(1, 1, 0.3, 1)
@@ -61,31 +54,34 @@ func _create_treasury_label():
 	treasury_label.align = Label.ALIGN_RIGHT
 	treasury_label.valign = Label.VALIGN_CENTER
 	treasury_label.autowrap = false
-	treasury_label.clip_text = false
+	treasury_label.clip_text = true
 	treasury_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	ui.add_child(treasury_label)
 	treasury_label.set_as_toplevel(true)
 
-	# Anchor to the top-left, then position using viewport size.
 	treasury_label.anchor_left = 0.0
 	treasury_label.anchor_right = 0.0
 	treasury_label.anchor_top = 0.0
 	treasury_label.anchor_bottom = 0.0
 
-	var viewport_size = ui.get_viewport().get_visible_rect().size
-
-	treasury_label.rect_size = Vector2(700, 100)
-	treasury_label.rect_min_size = Vector2(700, 100)
-	treasury_label.rect_position = Vector2(
-		max(10, viewport_size.x - 500),
-		1
-	)
-
-	treasury_label.visible = true
-	treasury_label.modulate = Color(1, 1, 1, 1)
+	_update_treasury_label_layout()
 	treasury_label.show()
-	treasury_label.raise()
+
+
+func _update_treasury_label_layout():
+	if treasury_label == null or ui == null:
+		return
+
+	var viewport_size = ui.get_viewport().get_visible_rect().size
+	var label_width = min(320.0, max(180.0, viewport_size.x - 150.0))
+
+	treasury_label.rect_size = Vector2(label_width, 54)
+	treasury_label.rect_min_size = Vector2(label_width, 54)
+	treasury_label.rect_position = Vector2(
+		max(8.0, viewport_size.x - label_width - 12.0),
+		8.0
+	)
 
 
 func _create_buy_land_button():
@@ -93,20 +89,25 @@ func _create_buy_land_button():
 	buy_land_button.name = "BuyLandButton"
 	buy_land_button.flat = true
 	buy_land_button.text = ""
+	buy_land_button.focus_mode = Control.FOCUS_NONE
 
 	if ResourceLoader.exists("res://land.png"):
 		buy_land_button.icon = load("res://land.png")
 
 	buy_land_button.expand_icon = false
-	buy_land_button.rect_min_size = Vector2(104, 104)
+	buy_land_button.rect_min_size = Vector2(76, 76)
 	buy_land_button.visible = false
+	buy_land_button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	buy_land_button.anchor_left = 1.0
 	buy_land_button.anchor_right = 1.0
-	buy_land_button.margin_left = -224
-	buy_land_button.margin_right = -24
+	buy_land_button.anchor_top = 0.0
+	buy_land_button.anchor_bottom = 0.0
+
+	buy_land_button.margin_left = -96
+	buy_land_button.margin_right = -12
 	buy_land_button.margin_top = 112
-	buy_land_button.margin_bottom = 208
+	buy_land_button.margin_bottom = 196
 
 	ui.add_child(buy_land_button)
 
@@ -150,7 +151,7 @@ func update_treasury_label():
 		world.city_treasury.get_balance()
 	)
 
-	treasury_label.visible = true
+	_update_treasury_label_layout()
 	treasury_label.show()
 	treasury_label.raise()
 

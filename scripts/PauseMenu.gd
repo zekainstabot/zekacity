@@ -8,6 +8,7 @@ var overlay = null
 var status_label = null
 var restart_dialog = null
 var pause_panel = null
+var buttons_scroll = null
 
 
 func _ready():
@@ -40,73 +41,62 @@ func _create_pause_overlay():
 	overlay.name = "PauseOverlay"
 	overlay.color = Color(0.04, 0.08, 0.12, 0.88)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.anchor_left = 0.0
-	overlay.anchor_top = 0.0
 	overlay.anchor_right = 1.0
 	overlay.anchor_bottom = 1.0
-	overlay.margin_left = 0.0
-	overlay.margin_top = 0.0
-	overlay.margin_right = 0.0
-	overlay.margin_bottom = 0.0
 	overlay.visible = false
 	add_child(overlay)
 
 	pause_panel = PanelContainer.new()
 	pause_panel.name = "PausePanel"
-	pause_panel.rect_min_size = Vector2(300, 0)
 	overlay.add_child(pause_panel)
 
-	var layout = VBoxContainer.new()
-	layout.alignment = BoxContainer.ALIGN_CENTER
-	layout.add_constant_override("separation", 14)
-	layout.anchor_left = 0.0
-	layout.anchor_top = 0.0
-	layout.anchor_right = 1.0
-	layout.anchor_bottom = 1.0
-	layout.margin_left = 18
-	layout.margin_top = 18
-	layout.margin_right = -18
-	layout.margin_bottom = -18
-	pause_panel.add_child(layout)
+	var outer_layout = VBoxContainer.new()
+	outer_layout.anchor_right = 1.0
+	outer_layout.anchor_bottom = 1.0
+	outer_layout.margin_left = 12
+	outer_layout.margin_top = 12
+	outer_layout.margin_right = -12
+	outer_layout.margin_bottom = -12
+	outer_layout.add_constant_override("separation", 8)
+	pause_panel.add_child(outer_layout)
 
 	var title = Label.new()
 	title.text = "ZEKACITY"
 	title.align = Label.ALIGN_CENTER
-	title.rect_min_size = Vector2(0, 64)
-	title.add_font_override("font", _make_font(36))
-	layout.add_child(title)
+	title.rect_min_size = Vector2(0, 54)
+	title.add_font_override("font", _make_font(30))
+	outer_layout.add_child(title)
+
+	buttons_scroll = ScrollContainer.new()
+	buttons_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buttons_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	buttons_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	outer_layout.add_child(buttons_scroll)
+
+	var layout = VBoxContainer.new()
+	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layout.add_constant_override("separation", 10)
+	buttons_scroll.add_child(layout)
 
 	var resume_button = _make_button("Resume")
 	layout.add_child(resume_button)
-	resume_button.connect(
-		"pressed",
-		self,
-		"_on_resume_pressed"
-	)
+	resume_button.connect("pressed", self, "_on_resume_pressed")
 
 	var restart_button = _make_button("Restart")
 	layout.add_child(restart_button)
-	restart_button.connect(
-		"pressed",
-		self,
-		"_on_restart_pressed"
-	)
+	restart_button.connect("pressed", self, "_on_restart_pressed")
 
 	var exit_button = _make_button("Exit")
 	layout.add_child(exit_button)
-	exit_button.connect(
-		"pressed",
-		self,
-		"_on_exit_pressed"
-	)
+	exit_button.connect("pressed", self, "_on_exit_pressed")
 
 	status_label = Label.new()
 	status_label.text = ""
 	status_label.align = Label.ALIGN_CENTER
 	status_label.autowrap = true
-	status_label.rect_min_size = Vector2(0, 72)
-	status_label.add_font_override("font", _make_font(22))
-	layout.add_child(status_label)
+	status_label.rect_min_size = Vector2(0, 44)
+	status_label.add_font_override("font", _make_font(18))
+	outer_layout.add_child(status_label)
 
 	_update_panel_position()
 
@@ -116,11 +106,8 @@ func _update_panel_position():
 		return
 
 	var viewport_size = get_viewport_rect().size
-	var panel_width = min(560.0, viewport_size.x - 24.0)
-	var panel_height = min(620.0, viewport_size.y - 24.0)
-
-	panel_width = max(240.0, panel_width)
-	panel_height = max(280.0, panel_height)
+	var panel_width = min(460.0, max(220.0, viewport_size.x - 24.0))
+	var panel_height = min(520.0, max(200.0, viewport_size.y - 24.0))
 
 	pause_panel.rect_size = Vector2(panel_width, panel_height)
 	pause_panel.rect_position = Vector2(
@@ -137,21 +124,20 @@ func _make_font(font_size):
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
 	if not ResourceLoader.exists(font_path):
-		push_warning("Roboto font not found: " + font_path)
 		return get_font("font")
 
 	var font = DynamicFont.new()
 	font.font_data = load(font_path)
 	font.size = font_size
-
 	return font
+
 
 func _make_button(button_text):
 	var button = Button.new()
 	button.text = button_text
-	button.rect_min_size = Vector2(0, 82)
-	button.add_font_override("font", _make_font(28))
+	button.rect_min_size = Vector2(0, 68)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_font_override("font", _make_font(24))
 	button.focus_mode = Control.FOCUS_NONE
 	return button
 
@@ -162,17 +148,15 @@ func _create_restart_dialog():
 	restart_dialog.window_title = "Start a New City"
 	restart_dialog.dialog_text = (
 		"Start a completely new city?\n\n"
-		+ "Your current city will be saved to a separate "
-		+ "backup file before the new city starts.\n"
-		+ "Continue only if you want a new city."
+		+ "Your current city will be backed up first."
 	)
 
 	restart_dialog.get_ok().text = "Create New City"
 	restart_dialog.get_cancel().text = "Cancel"
-	restart_dialog.get_ok().rect_min_size = Vector2(200, 64)
-	restart_dialog.get_cancel().rect_min_size = Vector2(160, 64)
-	restart_dialog.get_ok().add_font_override("font", _make_font(22))
-	restart_dialog.get_cancel().add_font_override("font", _make_font(22))
+	restart_dialog.get_ok().rect_min_size = Vector2(160, 56)
+	restart_dialog.get_cancel().rect_min_size = Vector2(120, 56)
+	restart_dialog.get_ok().add_font_override("font", _make_font(19))
+	restart_dialog.get_cancel().add_font_override("font", _make_font(19))
 	add_child(restart_dialog)
 
 	restart_dialog.connect(
@@ -201,16 +185,17 @@ func _on_resume_pressed():
 
 
 func _on_restart_pressed():
-	restart_dialog.popup_centered(Vector2(560, 320))
+	restart_dialog.popup_centered(
+		Vector2(
+			min(500, get_viewport_rect().size.x - 24),
+			280
+		)
+	)
 
 
 func _on_restart_confirmed():
 	if world == null:
 		_show_status("Error: World node not found.")
-		return
-
-	if not world.has_method("get"):
-		_show_status("Error: World is unavailable.")
 		return
 
 	var save_system = world.get("save_system")
