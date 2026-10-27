@@ -159,12 +159,32 @@ func _can_place_mountain(origin):
 	return true
 
 
+
 func _get_mountain_draw_data(mountain):
-	var center_grid = mountain["origin"] + Vector2(1, 1)
+	# Center the mountain over the full 3x3 isometric footprint.
+	var origin = mountain["origin"]
+	var center_grid = origin + Vector2(
+		float(mountain_size) / 2.0,
+		float(mountain_size) / 2.0
+	)
+
 	var center = world.grid_to_screen(center_grid, map_center)
 
 	var texture_size = mountain_texture.get_size()
-	var target_size = Vector2(150, 150)
+
+	# The footprint of a 3x3 area is 192 x 144 pixels.
+	# Keep the texture aspect ratio and let it rise above the ground.
+	var footprint_width = (
+		float(mountain_size) * float(world.tile_width)
+	)
+	var footprint_height = (
+		float(mountain_size) * float(world.tile_height)
+	)
+
+	var target_size = Vector2(
+		footprint_width,
+		max(footprint_height, 150.0)
+	)
 
 	var scale_factor = min(
 		target_size.x / texture_size.x,
@@ -172,6 +192,8 @@ func _get_mountain_draw_data(mountain):
 	)
 
 	var draw_size = texture_size * scale_factor
+
+	# Align the bottom center of the image to the footprint center.
 	var draw_pos = center - Vector2(
 		draw_size.x / 2.0,
 		draw_size.y
@@ -179,7 +201,8 @@ func _get_mountain_draw_data(mountain):
 
 	return {
 		"draw_pos": draw_pos,
-		"draw_size": draw_size
+		"draw_size": draw_size,
+		"ground_center": center
 	}
 
 
