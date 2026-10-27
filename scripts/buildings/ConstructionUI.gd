@@ -15,6 +15,7 @@ const BUILDING_IMAGE_PATHS = {
 	"normal_house": "res://BuildingImages/normal_house.png",
 	"low_apartment": "res://BuildingImages/low_apartment.png",
 	"high_apartment": "res://BuildingImages/high_apartment.png",
+	"road": "res://BuildingImages/road_straight.png",
 	"residential_tower": "res://BuildingImages/residential_tower.png",
 	"grocery_store": "res://BuildingImages/grocery_store.png",
 	"bakery": "res://BuildingImages/grocery_store.png",

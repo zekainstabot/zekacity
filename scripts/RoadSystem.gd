@@ -1,134 +1,125 @@
+
 extends Node2D
 
-# =========================================
-# ZekaCity - RoadSystem.gd
-# Godot 3.6
-# =========================================
+const ROAD_TEXTURE_PATH = "res://BuildingImages/road_straight.png"
 
 var tile_width = 64
 var tile_height = 32
-var road_width = 8.0
-var road_color = Color(0.25, 0.26, 0.28)
 var map_center = Vector2(600, 130)
-
 var roads = []
+var road_texture = null
+
+# اندازه ثابت تصویر جاده در هر لوزی
+var road_texture_size = Vector2(50, 20)
+
+
+func _ready():
+	if ResourceLoader.exists(ROAD_TEXTURE_PATH):
+		road_texture = load(ROAD_TEXTURE_PATH)
+	else:
+		push_error("Road texture not found: " + ROAD_TEXTURE_PATH)
 
 
 func _draw():
+	if road_texture == null:
+		return
+
+	# اول اتصال جاده‌های افقی مجاور را رسم کن
 	for road in roads:
-		_draw_road(road["grid"], road["direction"])
+		if int(road["direction"]) != 0:
+			continue
 
-
-# =========================================
-# رسم جاده با اتصال به خانه‌های مجاور
-# =========================================
-
-func _draw_road(grid_pos, direction):
-	var pos = _grid_to_screen(grid_pos)
-	var start_point
-	var end_point
-
-	if direction == 0:
-		start_point = pos + Vector2(-tile_width * 0.25, -tile_height * 0.25)
-		end_point = pos + Vector2(tile_width * 0.25, tile_height * 0.25)
-
-		if has_road(grid_pos + Vector2(-1, 0)):
-			start_point = pos + Vector2(-tile_width * 0.5, -tile_height * 0.5)
+		var grid_pos = road["grid"]
+		var pos = _grid_to_screen(grid_pos)
 
 		if has_road(grid_pos + Vector2(1, 0)):
-			end_point = pos + Vector2(tile_width * 0.5, tile_height * 0.5)
+			var next_pos = _grid_to_screen(grid_pos + Vector2(1, 0))
+			_draw_road_connection(pos, next_pos)
 
-	else:
-		start_point = pos + Vector2(tile_width * 0.25, -tile_height * 0.25)
-		end_point = pos + Vector2(-tile_width * 0.25, tile_height * 0.25)
+	# بعد تصویر اصلی هر جاده را یک بار رسم کن
+	for road in roads:
+		if int(road["direction"]) != 0:
+			continue
 
-		if has_road(grid_pos + Vector2(0, -1)):
-			start_point = pos + Vector2(tile_width * 0.5, -tile_height * 0.5)
-
-		if has_road(grid_pos + Vector2(0, 1)):
-			end_point = pos + Vector2(-tile_width * 0.5, tile_height * 0.5)
-
-	draw_line(start_point, end_point, road_color, road_width, true)
-
-	# جهت 0: محور X شبکه
-	# جهت 1: محور Y شبکه
-	if direction == 0:
-		start_point = pos + Vector2(-tile_width * 0.25, -tile_height * 0.25)
-		end_point = pos + Vector2(tile_width * 0.25, tile_height * 0.25)
-
-		if has_road(grid_pos + Vector2(-1, 0)):
-			start_point = pos + Vector2(-tile_width * 0.5, -tile_height * 0.5)
-
-		if has_road(grid_pos + Vector2(1, 0)):
-			end_point = pos + Vector2(tile_width * 0.5, tile_height * 0.5)
-
-	else:
-		start_point = pos + Vector2(tile_width * 0.25, -tile_height * 0.25)
-		end_point = pos + Vector2(-tile_width * 0.25, tile_height * 0.25)
-
-		if has_road(grid_pos + Vector2(0, -1)):
-			start_point = pos + Vector2(tile_width * 0.5, -tile_height * 0.5)
-
-		if has_road(grid_pos + Vector2(0, 1)):
-			end_point = pos + Vector2(-tile_width * 0.5, tile_height * 0.5)
-
-	draw_line(start_point, end_point, road_color, road_width, true)
+		_draw_road_texture(_grid_to_screen(road["grid"]))
 
 
-# =========================================
-# مختصات شبکه به صفحه
-# =========================================
+func _draw_road_texture(pos):
+	var texture_size = road_texture.get_size()
+
+	if texture_size.x <= 0 or texture_size.y <= 0:
+		return
+
+	var scale_factor = road_texture_size / texture_size
+
+	draw_set_transform(pos, 0.0, scale_factor)
+	draw_texture(
+		road_texture,
+		-texture_size / 2.0,
+		Color(1, 1, 1, 1)
+	)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_road_connection(from_pos, to_pos):
+	var texture_size = road_texture.get_size()
+
+	if texture_size.x <= 0 or texture_size.y <= 0:
+		return
+
+	# فاصله بین مراکز دو لوزی مجاور
+	var distance = from_pos.distance_to(to_pos)
+	var midpoint = (from_pos + to_pos) / 2.0
+
+	# برش باریک از مرکز بافت؛ از کل تصویر استفاده نمی‌شود
+	var strip_width = max(1.0, texture_size.x * 0.25)
+	var source_rect = Rect2(
+		Vector2((texture_size.x - strip_width) / 2.0, 0),
+		Vector2(strip_width, texture_size.y)
+	)
+
+	# جهت اتصال فقط از موقعیت دو جاده افقی مجاور گرفته می‌شود
+	var angle = (to_pos - from_pos).angle()
+	var target_size = Vector2(distance, road_texture_size.y)
+
+	draw_set_transform(midpoint, angle, Vector2.ONE)
+	draw_texture_rect_region(
+		road_texture,
+		Rect2(
+			Vector2(-target_size.x / 2.0, -target_size.y / 2.0),
+			target_size
+		),
+		source_rect,
+		Color(1, 1, 1, 1)
+	)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
 
 func _grid_to_screen(grid_pos):
 	return map_center + Vector2(
-		(grid_pos.x - grid_pos.y) * tile_width / 2,
-		(grid_pos.x + grid_pos.y) * tile_height / 2
+		(grid_pos.x - grid_pos.y) * tile_width / 2.0,
+		(grid_pos.x + grid_pos.y) * tile_height / 2.0
 	)
 
 
-# =========================================
-# افزودن جاده
-# =========================================
-
 func add_road(grid_pos, direction):
-	if direction != 0 and direction != 1:
-		push_error("Invalid road direction: " + str(direction))
+	# فعلاً فقط جاده افقی شبکه
+	if direction != 0:
 		return false
 
-	var world = get_node_or_null("../World")
-
-	if world != null and world.is_tile_occupied(grid_pos):
-		print("ROAD BLOCKED AT: ", grid_pos)
-
-	for building in world.placed_buildings:
-		if building["grid"] == grid_pos:
-			print(
-				"BLOCKING BUILDING: ",
-				building["id"],
-				" | GRID: ",
-				building["grid"]
-			)
-
-	return false
-
 	for road in roads:
-		if road["grid"] == grid_pos and road["direction"] == direction:
-			print("This road direction already exists on this tile.")
+		if road["grid"] == grid_pos:
 			return false
 
 	roads.append({
 		"grid": grid_pos,
-		"direction": direction
+		"direction": 0
 	})
 
 	update()
-	print("ROAD ADDED: ", grid_pos, " direction: ", direction)
+	print("ROAD ADDED: ", grid_pos)
 	return true
 
-
-# =========================================
-# حذف جاده
-# =========================================
 
 func remove_road(grid_pos):
 	for i in range(roads.size() - 1, -1, -1):
@@ -140,22 +131,14 @@ func remove_road(grid_pos):
 	return false
 
 
-# =========================================
-# بررسی وجود جاده در خانه
-# =========================================
-
 func has_road(grid_pos):
 	for road in roads:
-		if road["grid"] == grid_pos:
+		if road["grid"] == grid_pos and int(road["direction"]) == 0:
 			return true
 
 	return false
 
 
-# =========================================
-# تغییر ضخامت جاده
-# =========================================
-
 func set_road_width(value):
-	road_width = max(1.0, value)
+	road_texture_size.y = max(1.0, value)
 	update()
