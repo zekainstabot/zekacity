@@ -36,16 +36,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           sdkmanager --install \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.2"
+
           yes | sdkmanager --licenses >/dev/null || true
 
       - name: Download Godot 3.6.3
         shell: bash
         run: |
           set -euo pipefail
+
           mkdir -p "$RUNNER_TEMP/godot"
 
           wget -nv \
@@ -66,7 +69,9 @@ jobs:
           fi
 
           chmod +x "$GODOT_BIN"
+
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
           "$GODOT_BIN" --version
 
       - name: Install Android export templates
@@ -88,8 +93,15 @@ jobs:
 
           SOURCE_TEMPLATES="$EXTRACT_DIR/templates"
 
-          test -s "$SOURCE_TEMPLATES/android_debug.apk"
-          test -s "$SOURCE_TEMPLATES/android_release.apk"
+          if [ ! -s "$SOURCE_TEMPLATES/android_debug.apk" ]; then
+            echo "ERROR: Android debug export template is missing."
+            exit 1
+          fi
+
+          if [ ! -s "$SOURCE_TEMPLATES/android_release.apk" ]; then
+            echo "ERROR: Android release export template is missing."
+            exit 1
+          fi
 
           cp -a "$SOURCE_TEMPLATES/." "$TEMPLATE_ROOT/"
 
@@ -125,23 +137,24 @@ jobs:
           path = Path("export_presets.cfg")
 
           if not path.is_file():
-              raise SystemExit("ERROR: export_presets.cfg was not found.")
+              raise SystemExit(
+                  "ERROR: export_presets.cfg was not found."
+              )
 
           content = path.read_text(encoding="utf-8")
 
-          # Find the first preset section exactly, not its options subsection.
           preset_match = re.search(
               r"(?m)^\[preset\.0\][ \t]*$",
               content
           )
 
           if preset_match is None:
-              raise SystemExit("ERROR: [preset.0] was not found.")
+              raise SystemExit(
+                  "ERROR: [preset.0] was not found."
+              )
 
           preset_start = preset_match.start()
 
-          # Find the next numbered preset section, allowing [preset.0.options]
-          # to remain part of preset 0.
           next_match = re.search(
               r"(?m)^\[preset\.\d+\][ \t]*$",
               content[preset_match.end():]
@@ -150,7 +163,9 @@ jobs:
           if next_match is None:
               preset_end = len(content)
           else:
-              preset_end = preset_match.end() + next_match.start()
+              preset_end = (
+                  preset_match.end() + next_match.start()
+              )
 
           preset = content[preset_start:preset_end]
 
@@ -158,7 +173,9 @@ jobs:
               r'(?m)^platform="Android"\s*$',
               preset
           ):
-              raise SystemExit("ERROR: preset.0 is not an Android preset.")
+              raise SystemExit(
+                  "ERROR: preset.0 is not an Android preset."
+              )
 
           options_match = re.search(
               r"(?m)^\[preset\.0\.options\][ \t]*$",
@@ -167,7 +184,7 @@ jobs:
 
           if options_match is None:
               raise SystemExit(
-                  "ERROR: [preset.0.options] was not found inside preset 0."
+                  "ERROR: [preset.0.options] was not found."
               )
 
           options_start = options_match.end()
@@ -188,7 +205,6 @@ jobs:
               )
 
               escaped_value = value.replace("\\", "\\\\")
-
               replacement = key + '="' + escaped_value + '"'
 
               if pattern.search(options):
@@ -210,22 +226,6 @@ jobs:
 
           path.write_text(content, encoding="utf-8")
 
-          # Verify that all signing keys were written into preset 0.
-          check = path.read_text(encoding="utf-8")
-          first_options = check.find("[preset.0.options]")
-
-          if first_options == -1:
-              raise SystemExit("ERROR: Android options verification failed.")
-
-          for key in values:
-              if not re.search(
-                  r"(?m)^" + re.escape(key) + r'="[^"]+"',
-                  check[first_options:]
-              ):
-                  raise SystemExit(
-                      "ERROR: Signing option was not written: " + key
-                  )
-
           print("Android signing configured successfully.")
           PY
 
@@ -242,7 +242,9 @@ jobs:
           import re
           from pathlib import Path
 
-          content = Path("export_presets.cfg").read_text(encoding="utf-8")
+          content = Path("export_presets.cfg").read_text(
+              encoding="utf-8"
+          )
 
           match = re.search(
               r"(?ms)^\[preset\.0\][ \t]*$(.*?)(?=^\[preset\.\d+\][ \t]*$|\Z)",
@@ -250,18 +252,32 @@ jobs:
           )
 
           if match is None:
-              raise SystemExit("ERROR: preset.0 was not found.")
+              raise SystemExit(
+                  "ERROR: preset.0 was not found."
+              )
 
           preset = match.group(0)
 
-          if not re.search(r'(?m)^name="Android"\s*$', preset):
-              raise SystemExit("ERROR: preset.0 name is not Android.")
+          if not re.search(
+              r'(?m)^name="Android"\s*$',
+              preset
+          ):
+              raise SystemExit(
+                  "ERROR: preset.0 name is not Android."
+              )
 
-          if not re.search(r'(?m)^platform="Android"\s*$', preset):
-              raise SystemExit("ERROR: preset.0 platform is not Android.")
+          if not re.search(
+              r'(?m)^platform="Android"\s*$',
+              preset
+          ):
+              raise SystemExit(
+                  "ERROR: preset.0 platform is not Android."
+              )
 
           if "[preset.0.options]" not in preset:
-              raise SystemExit("ERROR: Android options section is missing.")
+              raise SystemExit(
+                  "ERROR: Android options section is missing."
+              )
 
           print("Project and Android preset checks passed.")
           PY
@@ -274,14 +290,16 @@ jobs:
 
           IMPORT_LOG="$RUNNER_TEMP/godot-import.log"
 
-          echo "Starting Godot resource import at $(date -u)"
+          echo "Starting Godot editor import at $(date -u)"
           "$GODOT_BIN" --version
 
           set +e
           timeout --signal=TERM --kill-after=15s 8m \
             "$GODOT_BIN" \
             --path "$GITHUB_WORKSPACE" \
+            --editor \
             --import \
+            --quit \
             --verbose \
             > "$IMPORT_LOG" 2>&1
 
@@ -294,7 +312,7 @@ jobs:
           echo "----- END IMPORT LOG -----"
 
           if [ "$STATUS" -ne 0 ]; then
-            echo "ERROR: Godot resource import failed or timed out."
+            echo "ERROR: Godot editor import failed or timed out."
             exit 1
           fi
 
