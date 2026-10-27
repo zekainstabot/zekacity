@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Export Android APK
+    name: Export ZekaCity Android APK
     runs-on: ubuntu-22.04
     timeout-minutes: 30
 
@@ -93,8 +93,15 @@ jobs:
 
           SOURCE_TEMPLATES="$EXTRACT_DIR/templates"
 
-          test -s "$SOURCE_TEMPLATES/android_debug.apk"
-          test -s "$SOURCE_TEMPLATES/android_release.apk"
+          if [ ! -s "$SOURCE_TEMPLATES/android_debug.apk" ]; then
+            echo "ERROR: Android debug export template is missing."
+            exit 1
+          fi
+
+          if [ ! -s "$SOURCE_TEMPLATES/android_release.apk" ]; then
+            echo "ERROR: Android release export template is missing."
+            exit 1
+          fi
 
           cp -a "$SOURCE_TEMPLATES/." "$TEMPLATE_ROOT/"
 
@@ -136,19 +143,36 @@ jobs:
 
           content = path.read_text(encoding="utf-8")
 
-          start = content.find("[preset.0.options]")
+          preset_start = content.find("[preset.0]")
 
-          if start == -1:
+          if preset_start == -1:
+              raise SystemExit(
+                  "ERROR: Android preset [preset.0] was not found."
+              )
+
+          preset_end = content.find("\n[preset.", preset_start + 1)
+
+          if preset_end == -1:
+              preset_end = len(content)
+
+          preset = content[preset_start:preset_end]
+
+          if not re.search(
+              r'(?m)^platform="Android"\s*$',
+              preset
+          ):
+              raise SystemExit(
+                  "ERROR: preset.0 is not an Android preset."
+              )
+
+          options_start = preset.find("[preset.0.options]")
+
+          if options_start == -1:
               raise SystemExit(
                   "ERROR: Android preset options were not found."
               )
 
-          end = content.find("\n[preset.", start + 1)
-
-          if end == -1:
-              end = len(content)
-
-          section = content[start:end]
+          options = preset[options_start:]
 
           values = {
               "keystore/debug": os.environ["KEYSTORE"],
@@ -161,22 +185,29 @@ jobs:
 
           for key, value in values.items():
               pattern = re.compile(
-                  r'(?m)^' + re.escape(key) + r'="[^\"]*"'
+                  r'(?m)^' + re.escape(key) + r'="[^"]*"'
               )
 
               escaped_value = value.replace("\\", "\\\\")
+
               replacement = key + '="' + escaped_value + '"'
 
-              if pattern.search(section):
-                  section = pattern.sub(
+              if pattern.search(options):
+                  options = pattern.sub(
                       lambda _: replacement,
-                      section,
-                      count=1,
+                      options,
+                      count=1
                   )
               else:
-                  section += "\n" + replacement
+                  options += "\n" + replacement
 
-          content = content[:start] + section + content[end:]
+          preset = preset[:options_start] + options
+
+          content = (
+              content[:preset_start]
+              + preset
+              + content[preset_end:]
+          )
 
           path.write_text(content, encoding="utf-8")
 
@@ -189,10 +220,14 @@ jobs:
           set -euo pipefail
 
           test -f project.godot
+          test -f Main.tscn
           test -f export_presets.cfg
 
-          grep -Eq '^[[:space:]]*name="Android"[[:space:]]*$' export_presets.cfg
-          grep -Eq '^[[:space:]]*platform="Android"[[:space:]]*$' export_presets.cfg
+          grep -Eq '^[[:space:]]*name="Android"[[:space:]]*$' \
+            export_presets.cfg
+
+          grep -Eq '^[[:space:]]*platform="Android"[[:space:]]*$' \
+            export_presets.cfg
 
           echo "Project and Android preset checks passed."
 
@@ -204,7 +239,7 @@ jobs:
 
           IMPORT_LOG="$RUNNER_TEMP/godot-import.log"
 
-          echo "Starting Godot import at $(date -u)"
+          echo "Starting Godot resource import at $(date -u)"
           echo "Godot version:"
           "$GODOT_BIN" --version
 
@@ -212,30 +247,24 @@ jobs:
           timeout --signal=TERM --kill-after=15s 8m \
             "$GODOT_BIN" \
             --path "$GITHUB_WORKSPACE" \
-            --editor \
-            --quit \
+            --import \
+            --verbose \
             > "$IMPORT_LOG" 2>&1
 
           STATUS=$?
           set -e
 
           echo "Godot import exit code: $STATUS"
-          echo "Import finished at $(date -u)"
-          echo "----- GODOT IMPORT LOG -----"
-          cat "$IMPORT_LOG"
+          echo "----- LAST 250 LINES OF IMPORT LOG -----"
+          tail -n 250 "$IMPORT_LOG"
           echo "----- END IMPORT LOG -----"
 
-          if [ "$STATUS" -eq 124 ] || \
-             [ "$STATUS" -eq 137 ] || \
-             [ "$STATUS" -eq 143 ]; then
-            echo "ERROR: Godot import timed out or was terminated."
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: Godot resource import failed or timed out."
             exit 1
           fi
 
-          if [ "$STATUS" -ne 0 ]; then
-            echo "ERROR: Godot import exited with code $STATUS."
-            exit "$STATUS"
-          fi
+          echo "Godot resource import completed."
 
       - name: Export Android APK
         shell: bash
@@ -245,6 +274,8 @@ jobs:
 
           OUTPUT_APK="$RUNNER_TEMP/ZekaCity.apk"
           EXPORT_LOG="$RUNNER_TEMP/godot-export.log"
+
+          echo "Starting Android APK export at $(date -u)"
 
           set +e
           timeout --signal=TERM --kill-after=15s 8m \
@@ -257,20 +288,13 @@ jobs:
           set -e
 
           echo "Godot export exit code: $STATUS"
-          echo "----- GODOT EXPORT LOG -----"
-          cat "$EXPORT_LOG"
+          echo "----- LAST 250 LINES OF EXPORT LOG -----"
+          tail -n 250 "$EXPORT_LOG"
           echo "----- END EXPORT LOG -----"
 
-          if [ "$STATUS" -eq 124 ] || \
-             [ "$STATUS" -eq 137 ] || \
-             [ "$STATUS" -eq 143 ]; then
-            echo "ERROR: Android export timed out or was terminated."
-            exit 1
-          fi
-
           if [ "$STATUS" -ne 0 ]; then
-            echo "ERROR: Godot export exited with code $STATUS."
-            exit "$STATUS"
+            echo "ERROR: Android export failed or timed out."
+            exit 1
           fi
 
           if [ ! -s "$OUTPUT_APK" ]; then
