@@ -1,4 +1,3 @@
-
 name: Build ZekaCity Android APK
 
 on:
@@ -52,19 +51,17 @@ jobs:
           mkdir -p "$RUNNER_TEMP/godot"
 
           wget -nv \
-            "https://github.com/godotengine/godot-builds/releases/download/3.6.3-stable/Godot_v3.6.3-stable_linux_headless.64.zip" \
+            "https://github.com/godotengine/godot-builds/releases/download/3.6.3-stable/Godot_v3.6.3-stable_linux.x86_64.zip" \
             -O "$RUNNER_TEMP/godot/godot.zip"
 
           unzip -o "$RUNNER_TEMP/godot/godot.zip" \
             -d "$RUNNER_TEMP/godot"
 
-          GODOT_BIN="$(find "$RUNNER_TEMP/godot" \
-            -type f \
-            -name "Godot_v3.6.3-stable_linux_headless.64" \
-            -print -quit)"
+          GODOT_BIN="$RUNNER_TEMP/godot/Godot_v3.6.3-stable_linux.x86_64"
 
-          if [ -z "$GODOT_BIN" ]; then
-            echo "ERROR: Godot executable was not found."
+          if [ ! -f "$GODOT_BIN" ]; then
+            echo "ERROR: Godot editor executable was not found."
+            find "$RUNNER_TEMP/godot" -maxdepth 2 -type f
             exit 1
           fi
 
@@ -93,15 +90,8 @@ jobs:
 
           SOURCE_TEMPLATES="$EXTRACT_DIR/templates"
 
-          if [ ! -s "$SOURCE_TEMPLATES/android_debug.apk" ]; then
-            echo "ERROR: Android debug export template is missing."
-            exit 1
-          fi
-
-          if [ ! -s "$SOURCE_TEMPLATES/android_release.apk" ]; then
-            echo "ERROR: Android release export template is missing."
-            exit 1
-          fi
+          test -s "$SOURCE_TEMPLATES/android_debug.apk"
+          test -s "$SOURCE_TEMPLATES/android_release.apk"
 
           cp -a "$SOURCE_TEMPLATES/." "$TEMPLATE_ROOT/"
 
@@ -137,9 +127,7 @@ jobs:
           path = Path("export_presets.cfg")
 
           if not path.is_file():
-              raise SystemExit(
-                  "ERROR: export_presets.cfg was not found."
-              )
+              raise SystemExit("ERROR: export_presets.cfg was not found.")
 
           content = path.read_text(encoding="utf-8")
 
@@ -149,9 +137,7 @@ jobs:
           )
 
           if preset_match is None:
-              raise SystemExit(
-                  "ERROR: [preset.0] was not found."
-              )
+              raise SystemExit("ERROR: [preset.0] was not found.")
 
           preset_start = preset_match.start()
 
@@ -163,9 +149,7 @@ jobs:
           if next_match is None:
               preset_end = len(content)
           else:
-              preset_end = (
-                  preset_match.end() + next_match.start()
-              )
+              preset_end = preset_match.end() + next_match.start()
 
           preset = content[preset_start:preset_end]
 
@@ -173,9 +157,7 @@ jobs:
               r'(?m)^platform="Android"\s*$',
               preset
           ):
-              raise SystemExit(
-                  "ERROR: preset.0 is not an Android preset."
-              )
+              raise SystemExit("ERROR: preset.0 is not an Android preset.")
 
           options_match = re.search(
               r"(?m)^\[preset\.0\.options\][ \t]*$",
@@ -183,9 +165,7 @@ jobs:
           )
 
           if options_match is None:
-              raise SystemExit(
-                  "ERROR: [preset.0.options] was not found."
-              )
+              raise SystemExit("ERROR: [preset.0.options] was not found.")
 
           options_start = options_match.end()
           options = preset[options_start:]
@@ -225,7 +205,6 @@ jobs:
           )
 
           path.write_text(content, encoding="utf-8")
-
           print("Android signing configured successfully.")
           PY
 
@@ -252,32 +231,18 @@ jobs:
           )
 
           if match is None:
-              raise SystemExit(
-                  "ERROR: preset.0 was not found."
-              )
+              raise SystemExit("ERROR: preset.0 was not found.")
 
           preset = match.group(0)
 
-          if not re.search(
-              r'(?m)^name="Android"\s*$',
-              preset
-          ):
-              raise SystemExit(
-                  "ERROR: preset.0 name is not Android."
-              )
+          if not re.search(r'(?m)^name="Android"\s*$', preset):
+              raise SystemExit("ERROR: preset.0 name is not Android.")
 
-          if not re.search(
-              r'(?m)^platform="Android"\s*$',
-              preset
-          ):
-              raise SystemExit(
-                  "ERROR: preset.0 platform is not Android."
-              )
+          if not re.search(r'(?m)^platform="Android"\s*$', preset):
+              raise SystemExit("ERROR: preset.0 platform is not Android.")
 
           if "[preset.0.options]" not in preset:
-              raise SystemExit(
-                  "ERROR: Android options section is missing."
-              )
+              raise SystemExit("ERROR: Android options section is missing.")
 
           print("Project and Android preset checks passed.")
           PY
@@ -296,6 +261,7 @@ jobs:
           set +e
           timeout --signal=TERM --kill-after=15s 8m \
             "$GODOT_BIN" \
+            --headless \
             --path "$GITHUB_WORKSPACE" \
             --editor \
             --import \
@@ -307,9 +273,7 @@ jobs:
           set -e
 
           echo "Godot import exit code: $STATUS"
-          echo "----- LAST 250 LINES OF IMPORT LOG -----"
           tail -n 250 "$IMPORT_LOG"
-          echo "----- END IMPORT LOG -----"
 
           if [ "$STATUS" -ne 0 ]; then
             echo "ERROR: Godot editor import failed or timed out."
@@ -332,6 +296,7 @@ jobs:
           set +e
           timeout --signal=TERM --kill-after=15s 8m \
             "$GODOT_BIN" \
+            --headless \
             --path "$GITHUB_WORKSPACE" \
             --export "Android" "$OUTPUT_APK" \
             > "$EXPORT_LOG" 2>&1
@@ -340,9 +305,7 @@ jobs:
           set -e
 
           echo "Godot export exit code: $STATUS"
-          echo "----- LAST 250 LINES OF EXPORT LOG -----"
           tail -n 250 "$EXPORT_LOG"
-          echo "----- END EXPORT LOG -----"
 
           if [ "$STATUS" -ne 0 ]; then
             echo "ERROR: Android export failed or timed out."
