@@ -130,46 +130,99 @@ func receive_from_municipal_storage(
 	}
 
 
-func sell_to_customer(resource_id, amount, customer_money):
+func sell_to_customer(resource_id, amount, customer_money, building):
 	if not PRODUCTS.has(resource_id):
-		return {
-			"success": false,
-			"error": "INVALID_PRODUCT"
-		}
+		return {"success": false, "error": "INVALID_PRODUCT"}
 
 	amount = int(amount)
+	customer_money = int(customer_money)
 
 	if amount <= 0:
-		return {
-			"success": false,
-			"error": "INVALID_AMOUNT"
-		}
+		return {"success": false, "error": "INVALID_AMOUNT"}
+
+	if typeof(building) != TYPE_DICTIONARY:
+		return {"success": false, "error": "INVALID_BUILDING"}
+
+	if str(building.get("id", "")) != "mineral_market":
+		return {"success": false, "error": "NOT_A_MINERAL_MARKET"}
 
 	if not can_supply(resource_id, amount):
-		return {
-			"success": false,
-			"error": "NOT_ENOUGH_STOCK"
-		}
+		return {"success": false, "error": "NOT_ENOUGH_STOCK"}
 
 	var total_cost = amount * get_sell_price(resource_id)
 
-	if int(customer_money) < total_cost:
-		return {
-			"success": false,
-			"error": "CUSTOMER_CANNOT_AFFORD"
-		}
+	if customer_money < total_cost:
+		return {"success": false, "error": "CUSTOMER_CANNOT_AFFORD"}
 
 	stock[resource_id] -= amount
+
+	building["business_balance"] = int(
+		building.get("business_balance", 0)
+	) + total_cost
+
+	building["last_revenue"] = int(
+		building.get("last_revenue", 0)
+	) + total_cost
+
+	building["total_revenue"] = int(
+		building.get("total_revenue", 0)
+	) + total_cost
+
+	print(
+		"REAL MARKET SALE | Product: ", resource_id,
+		" | Quantity: ", amount,
+		" | Revenue: $", total_cost,
+		" | Remaining stock: ", stock[resource_id]
+	)
 
 	return {
 		"success": true,
 		"product": resource_id,
 		"amount": amount,
 		"cost": total_cost,
-		"remaining_money": int(customer_money) - total_cost,
-		"remaining_stock": get_stock(resource_id)
+		"remaining_money": customer_money - total_cost,
+		"remaining_stock": get_stock(resource_id),
+		"business_balance": building["business_balance"]
 	}
 
+	# Complete the transaction.
+	stock[resource_id] -= amount
+
+	# Record actual sales revenue in this store's account.
+	building["business_balance"] = int(
+		building.get("business_balance", 0)
+	) + total_cost
+
+	building["last_revenue"] = int(
+		building.get("last_revenue", 0)
+	) + total_cost
+
+	building["total_revenue"] = int(
+		building.get("total_revenue", 0)
+	) + total_cost
+
+	print(
+		"REAL MARKET SALE | Product: ",
+		resource_id,
+		" | Quantity: ",
+		amount,
+		" | Revenue: $",
+		total_cost,
+		" | Business balance: $",
+		building["business_balance"],
+		" | Remaining stock: ",
+		stock[resource_id]
+	)
+
+	return {
+		"success": true,
+		"product": resource_id,
+		"amount": amount,
+		"cost": total_cost,
+		"remaining_money": customer_money - total_cost,
+		"remaining_stock": get_stock(resource_id),
+		"business_balance": building["business_balance"]
+	}
 
 func restore_stock(saved_stock):
 	if typeof(saved_stock) != TYPE_DICTIONARY:

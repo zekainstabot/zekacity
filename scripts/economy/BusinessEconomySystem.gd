@@ -2,40 +2,22 @@ extends Reference
 
 # ZekaCity - Business Economy System
 # Godot 3.6
+# Final payroll interval: 10 minutes
 
-const CYCLE_INTERVAL = 60.0
+const PAYROLL_INTERVAL = 600.0
 
 const BUSINESS_DATA = {
-	"grocery_store": {
-		"revenue_per_worker": 80,
-		"wage_per_worker": 30
-	},
-	"bakery": {
-		"revenue_per_worker": 100,
-		"wage_per_worker": 35
-	},
-	"restaurant": {
-		"revenue_per_worker": 130,
-		"wage_per_worker": 45
-	},
-	"office": {
-		"revenue_per_worker": 160,
-		"wage_per_worker": 60
-	},
-	"mineral_market": {
-		"revenue_per_worker": 90,
-		"wage_per_worker": 35
-	},
-	"shopping_mall": {
-		"revenue_per_worker": 180,
-		"wage_per_worker": 65
-	},
-	"factory": {
-		"revenue_per_worker": 150,
-		"wage_per_worker": 55
-	}
+	"grocery_store": {"wage_per_worker": 30},
+	"bakery": {"wage_per_worker": 35},
+	"restaurant": {"wage_per_worker": 45},
+	"office": {"wage_per_worker": 60},
+	"mineral_market": {"wage_per_worker": 35},
+	"shopping_mall": {"wage_per_worker": 65},
+	"factory": {"wage_per_worker": 55}
 }
 
+# برای آزمایش می‌توان این مقدار را موقتاً به 60 تغییر داد.
+var payroll_interval = PAYROLL_INTERVAL
 var elapsed = 0.0
 
 
@@ -45,24 +27,18 @@ func process_economy(delta, world):
 
 	elapsed += delta
 
-	while elapsed >= CYCLE_INTERVAL:
-		elapsed -= CYCLE_INTERVAL
-		run_cycle(world)
+	while elapsed >= payroll_interval:
+		elapsed -= payroll_interval
+		run_payroll(world)
 
 
-func run_cycle(world):
-	if world == null:
-		return
-
-	if world.citizen_system == null:
+func run_payroll(world):
+	if world == null or world.citizen_system == null:
 		return
 
 	var citizens = world.citizen_system.citizens
-
-	var total_revenue = 0
 	var total_wages_paid = 0
-	var total_owner_payout = 0
-	var total_profit = 0
+	var total_unpaid_wages = 0
 
 	for building_index in range(world.placed_buildings.size()):
 		var building = world.placed_buildings[building_index]
@@ -74,7 +50,6 @@ func run_cycle(world):
 		var building_grid = building.get("grid", Vector2.ZERO)
 		var workers = []
 
-		# پیدا کردن کارکنان همین کسب‌وکار
 		for citizen in citizens:
 			if str(citizen.get("job_id", "")) != building_id:
 				continue
@@ -87,177 +62,63 @@ func run_cycle(world):
 
 			workers.append(citizen)
 
-		var data = BUSINESS_DATA[building_id]
-
-		var revenue = workers.size() * int(
-			data["revenue_per_worker"]
-		)
-
 		var wage_per_worker = int(
-			data["wage_per_worker"]
+			BUSINESS_DATA[building_id]["wage_per_worker"]
 		)
 
 		var wages_due = workers.size() * wage_per_worker
+		var unpaid_before = int(
+			building.get("unpaid_wages", 0)
+		)
 
+		var total_due = unpaid_before + wages_due
 		var balance = int(
 			building.get("business_balance", 0)
 		)
 
-		var unpaid_wages = int(
-			building.get("unpaid_wages", 0)
-		)
-
-		# اضافه کردن درآمد به حساب کسب‌وکار
-		balance += revenue
-
-		# پرداخت حقوق معوق و حقوق دوره جاری
-		var total_due = unpaid_wages + wages_due
-		var wages_paid = min(balance, total_due)
-
-		balance -= wages_paid
-
-		var paid_to_workers = _pay_workers(
+		var amount_to_pay = min(balance, total_due)
+		var paid = _pay_workers(
 			workers,
-			wages_paid,
-			total_due,
+			amount_to_pay,
 			wage_per_worker
 		)
 
-		# ثبت حقوق پرداخت‌نشده
-		unpaid_wages = total_due - paid_to_workers
+		balance -= paid
+		var unpaid_after = total_due - paid
 
-		# محاسبه سود پس از حقوق پرداخت‌شده
-		var profit = revenue - paid_to_workers
-
-		# پرداخت موجودی اضافه به مالک واقعی
-		var owner_payout = balance
-
-		if owner_payout > 0:
-			var payout_success = _pay_business_owner(
-				world,
-				citizens,
-				building,
-				owner_payout
-			)
-
-			if payout_success:
-				balance = 0
-			else:
-				owner_payout = 0
-
-		# ذخیره اطلاعات مالی کسب‌وکار
 		building["business_balance"] = balance
-		building["unpaid_wages"] = unpaid_wages
-
-		building["last_revenue"] = revenue
-		building["last_wages"] = paid_to_workers
-		building["last_profit"] = profit
-
-		building["total_revenue"] = int(
-			building.get("total_revenue", 0)
-		) + revenue
-
+		building["unpaid_wages"] = unpaid_after
+		building["last_wages"] = paid
 		building["total_wages"] = int(
 			building.get("total_wages", 0)
-		) + paid_to_workers
-
-		building["total_profit"] = int(
-			building.get("total_profit", 0)
-		) + profit
+		) + paid
 
 		world.placed_buildings[building_index] = building
 
-		total_revenue += revenue
-		total_wages_paid += paid_to_workers
-		total_owner_payout += owner_payout
-		total_profit += profit
+		total_wages_paid += paid
+		total_unpaid_wages += unpaid_after
 
 		print(
-			"BUSINESS ECONOMY | ", building_id,
+			"PAYROLL | ", building_id,
 			" | Workers: ", workers.size(),
-			" | Revenue: $", revenue,
-			" | Wages paid: $", paid_to_workers,
-			" | Owner payout: $", owner_payout,
-			" | Profit: $", profit,
-			" | Balance: $", balance,
-			" | Unpaid wages: $", unpaid_wages
+			" | Due: $", total_due,
+			" | Paid: $", paid,
+			" | Unpaid: $", unpaid_after,
+			" | Business balance: $", balance
 		)
 
 	print(
-		"ECONOMY CYCLE COMPLETE",
-		" | Revenue: $", total_revenue,
-		" | Wages paid: $", total_wages_paid,
-		" | Owner payouts: $", total_owner_payout,
-		" | Net profit: $", total_profit
+		"PAYROLL COMPLETE",
+		" | Total paid: $", total_wages_paid,
+		" | Total unpaid: $", total_unpaid_wages
 	)
 
-	# ذخیره شهر پس از پایان چرخه
 	if world.save_system != null:
 		world.save_system.save_world(world)
 
 
-func _pay_business_owner(world, citizens, building, amount):
-	if amount <= 0:
-		return true
-
-	var owner_type = str(
-		building.get("owner_type", "player")
-	)
-
-	var owner_id = str(
-		building.get("owner_id", "player")
-	)
-
-	# پرداخت به بازیکن
-	if owner_type == "player" or owner_id == "player":
-		world.player_money = int(world.player_money) + amount
-
-		print(
-			"OWNER PAYOUT | Player received $",
-			amount,
-			" | Player money: $",
-			world.player_money
-		)
-
-		return true
-
-	# پرداخت به شهروند مالک
-	for citizen_index in range(citizens.size()):
-		var citizen = citizens[citizen_index]
-
-		if str(citizen.get("id", "")) != owner_id:
-			continue
-
-		citizen["wallet"] = int(
-			citizen.get("wallet", 0)
-		) + amount
-
-		citizens[citizen_index] = citizen
-
-		print(
-			"OWNER PAYOUT | Citizen ",
-			owner_id,
-			" received $",
-			amount,
-			" | Wallet: $",
-			citizen["wallet"]
-		)
-
-		return true
-
-	# مالک پیدا نشد؛ پول در حساب کسب‌وکار باقی می‌ماند.
-	print(
-		"OWNER PAYOUT FAILED | Owner not found: ",
-		owner_id,
-		" | Amount retained: $",
-		amount
-	)
-
-	return false
-
-
-func _pay_workers(workers, amount, total_due, wage_per_worker):
-	if workers.empty() or amount <= 0 or total_due <= 0:
+func _pay_workers(workers, amount, wage_per_worker):
+	if workers.empty() or amount <= 0:
 		return 0
 
 	var remaining = amount
@@ -267,20 +128,14 @@ func _pay_workers(workers, amount, total_due, wage_per_worker):
 		if remaining <= 0:
 			break
 
+		var share = min(wage_per_worker, remaining)
 		var citizen = workers[i]
-
-		# سهم هر کارمند از حقوق
-		var share = min(
-			wage_per_worker,
-			remaining
-		)
-
-		share = min(share, remaining)
 
 		citizen["wallet"] = int(
 			citizen.get("wallet", 0)
 		) + share
 
+		workers[i] = citizen
 		total_paid += share
 		remaining -= share
 

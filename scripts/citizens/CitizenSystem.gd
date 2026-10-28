@@ -11,7 +11,7 @@ const JOB_CAPACITY = {
 	"bakery": 4,
 	"restaurant": 6,
 	"office": 20,
-	"mineral_market": 3,
+	"mineral_market": 1,
 	"shopping_mall": 30,
 	"factory": 25
 }
