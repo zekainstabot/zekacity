@@ -21,6 +21,8 @@ var citizens = []
 var visuals = {}
 var next_citizen_id = 1
 var rng = RandomNumberGenerator.new()
+const SHOP_INTERVAL = 30.0
+var shopping_timer = 0.0
 
 
 func initialize(world_node):
@@ -32,6 +34,12 @@ func initialize(world_node):
 func _process(delta):
 	if world == null:
 		return
+		
+		shopping_timer += delta
+
+	if shopping_timer >= SHOP_INTERVAL:
+		shopping_timer = 0.0
+		_process_citizen_shopping()
 
 	for citizen in citizens:
 		if not citizen.has("grid_pos"):
@@ -157,7 +165,7 @@ func _create_citizen(home_key, home_grid):
 		"skin_seed": rng.randi_range(1, 1000000),
 
 		# Personal finances
-		"wallet": 0,
+		"wallet": 100,
 
 		# Employment
 		"job_id": "",
@@ -545,7 +553,7 @@ func load_data(saved_citizens):
 			),
 
 			# Wallet
-			"wallet": int(saved.get("wallet", 0))
+			"wallet": max(100, int(saved.get("wallet", 0)))
 		})
 
 	sync_residents()
@@ -676,3 +684,72 @@ func get_employment_stats():
 		"employed": employed,
 		"unemployed": citizens.size() - employed
 	}
+
+# --------------------------------------------------
+# REAL CITIZEN SHOPPING
+# --------------------------------------------------
+
+func _process_citizen_shopping():
+	if world == null:
+		return
+
+	if not ("mineral_market_system" in world):
+		return
+
+	var market = world.mineral_market_system
+
+	if market == null:
+		return
+
+	var markets = []
+
+	for building in world.placed_buildings:
+		if str(building.get("id", "")) == "mineral_market":
+			markets.append(building)
+
+	if markets.empty():
+		return
+
+	for citizen in citizens:
+		var wallet = int(citizen.get("wallet", 0))
+
+		if wallet <= 0:
+			continue
+
+		var products = ["stone", "iron_ore"]
+		var product_index = rng.randi_range(0, products.size() - 1)
+		var product_id = products[product_index]
+
+		var price = market.get_sell_price(product_id)
+
+		if wallet < price:
+			continue
+
+		if market.get_stock(product_id) <= 0:
+			continue
+
+		var market_index = rng.randi_range(0, markets.size() - 1)
+		var market_building = markets[market_index]
+
+		var result = market.sell_to_customer(
+			product_id,
+			1,
+			wallet,
+			market_building
+		)
+
+		if not result.get("success", false):
+			continue
+
+		citizen["wallet"] = int(result["remaining_money"])
+
+		print(
+			"CITIZEN PURCHASE | Citizen: ",
+			citizen.get("id", ""),
+			" | Product: ",
+			product_id,
+			" | Paid: $",
+			result["cost"],
+			" | Wallet: $",
+			citizen["wallet"]
+		)

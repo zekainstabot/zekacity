@@ -129,7 +129,6 @@ func receive_from_municipal_storage(
 		"treasury_balance": city_treasury.get_balance()
 	}
 
-
 func sell_to_customer(resource_id, amount, customer_money, building):
 	if not PRODUCTS.has(resource_id):
 		return {"success": false, "error": "INVALID_PRODUCT"}
@@ -172,46 +171,8 @@ func sell_to_customer(resource_id, amount, customer_money, building):
 		"REAL MARKET SALE | Product: ", resource_id,
 		" | Quantity: ", amount,
 		" | Revenue: $", total_cost,
+		" | Business balance: $", building["business_balance"],
 		" | Remaining stock: ", stock[resource_id]
-	)
-
-	return {
-		"success": true,
-		"product": resource_id,
-		"amount": amount,
-		"cost": total_cost,
-		"remaining_money": customer_money - total_cost,
-		"remaining_stock": get_stock(resource_id),
-		"business_balance": building["business_balance"]
-	}
-
-	# Complete the transaction.
-	stock[resource_id] -= amount
-
-	# Record actual sales revenue in this store's account.
-	building["business_balance"] = int(
-		building.get("business_balance", 0)
-	) + total_cost
-
-	building["last_revenue"] = int(
-		building.get("last_revenue", 0)
-	) + total_cost
-
-	building["total_revenue"] = int(
-		building.get("total_revenue", 0)
-	) + total_cost
-
-	print(
-		"REAL MARKET SALE | Product: ",
-		resource_id,
-		" | Quantity: ",
-		amount,
-		" | Revenue: $",
-		total_cost,
-		" | Business balance: $",
-		building["business_balance"],
-		" | Remaining stock: ",
-		stock[resource_id]
 	)
 
 	return {
