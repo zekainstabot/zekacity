@@ -1,3 +1,4 @@
+
 extends Reference
 
 # ZekaCity - ConstructionMenuController.gd
@@ -118,9 +119,6 @@ func on_build_button_pressed():
 		push_error("ConstructionMenuController: ConstructionMenu NOT FOUND")
 		return
 
-	print("MENU NODE TYPE: ", menu.get_class())
-	print("MENU PATH: ", menu.get_path())
-
 	menu.clear()
 
 	menu.add_item("Houses", 100)
@@ -137,19 +135,12 @@ func on_build_button_pressed():
 	menu.add_constant_override("vseparation", 22)
 	menu.add_constant_override("hseparation", 15)
 
-	# آزمایش موقعیت و اندازه
-	# توجه: PopupMenu ممکن است این ابعاد را نادیده بگیرد.
 	menu.rect_min_size = Vector2(500, 650)
 	menu.rect_size = Vector2(500, 650)
 
-	print("REQUESTED MENU SIZE: 500 x 650")
-	print("MENU RECT BEFORE POPUP: ", menu.get_rect())
-
-	# باز کردن منو
 	menu.popup()
 
-	print("MENU POPUP CALLED")
-
+	print("CONSTRUCTION MENU OPENED")
 
 func on_category_selected(id):
 	if world == null:
@@ -160,7 +151,7 @@ func on_category_selected(id):
 		return
 
 	if submenu_menu == null:
-		push_error("ConstructionMenuController: BuildingSubmenu NOT FOUND")
+		push_error("ConstructionMenuController: BUILDING SUBMENU NOT FOUND")
 		return
 
 	submenu_menu.clear()
@@ -168,8 +159,8 @@ func on_category_selected(id):
 	next_building_menu_id = 1
 
 	if id == 101:
-		submenu_menu.add_item("Road A", 201)
-		submenu_menu.add_item("Road B", 202)
+		submenu_menu.add_item("Horizontal Road", 201)
+		submenu_menu.add_item("Vertical Road", 202)
 		_show_submenu()
 		return
 
@@ -203,24 +194,18 @@ func on_category_selected(id):
 
 	_show_submenu()
 
-
 func _show_submenu():
 	if submenu_menu == null or world == null:
 		return
 
-	submenu_menu.clear()
-
 	submenu_menu.rect_min_size = Vector2(320, 100)
 	submenu_menu.rect_size = Vector2(320, 100)
-
 	submenu_menu.add_constant_override("vseparation", 18)
 	submenu_menu.add_constant_override("hseparation", 12)
 
 	var mouse_pos = world.get_global_mouse_position()
-
 	submenu_menu.rect_position = mouse_pos
 	submenu_menu.popup()
-
 
 func _on_SubmenuMenu_id_pressed(id):
 	if world == null:

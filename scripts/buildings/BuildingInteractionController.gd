@@ -67,51 +67,53 @@ func handle_input(event, world):
 
 	_select_land(mouse_pos, world)
 
-
 func _handle_mine_placement(mouse_pos, world):
-	var center = Vector2(600, 130)
-	var selected_tile = world.land_selection.get_selected_tile(
-		mouse_pos, center, world.grid_size,
-		world.tile_width, world.tile_height
+	var selected_resource = str(
+		world.get_meta("mine_placement_resource", "")
 	)
-	if selected_tile.x < 0:
+
+	if selected_resource == "":
+		print("MINE ERROR: No resource selected")
 		return
 
-	var selected_resource = str(world.get_meta("mine_placement_resource", ""))
 	var mountain_system = world.get_node_or_null("../MountainSystem")
+
 	if mountain_system == null:
-		push_error("MountainSystem node NOT FOUND")
+		push_error("MINE ERROR: MountainSystem not found")
 		return
 
-	var target_mountain_id = ""
-	for mountain_id in mountain_system.mountains.keys():
-		var mountain = mountain_system.mountains[mountain_id]
-		if str(mountain["resource_id"]) != selected_resource:
-			continue
-		if mountain["mine_point"] == selected_tile:
-			target_mountain_id = str(mountain_id)
-			break
+	var mountain_id = mountain_system.get_unbuilt_mountain_at_position(
+		mouse_pos,
+		selected_resource
+	)
 
-	if target_mountain_id == "":
-		print("MINE PLACEMENT FAILED: Click the marked mining point on the correct mountain.")
-		return
-	if not mountain_system.can_build_mine(target_mountain_id):
-		print("MINE PLACEMENT FAILED: A mine already exists here.")
-		return
-	if not mountain_system.build_mine(target_mountain_id):
-		print("MINE PLACEMENT FAILED: Check the treasury balance and try again.")
+	if mountain_id == "":
+		print("MINE ERROR: Click directly on the pickaxe marker of the correct mountain.")
 		return
 
-		world.remove_meta("mine_placement_resource")
-	
+	if not mountain_system.can_build_mine(mountain_id):
+		print("MINE ERROR: Cannot build mine here.")
+		return
+
+	if not mountain_system.build_mine(mountain_id):
+		print("MINE ERROR: Build failed. Check treasury balance.")
+		return
+
+	world.remove_meta("mine_placement_resource")
+
 	if world.has_method("_update_treasury_label"):
 		world._update_treasury_label()
 
 	if world.save_system != null:
 		world.save_system.save_world(world)
 
-	print("MINE BUILT SUCCESSFULLY: ", target_mountain_id, " | Cost: $", mountain_system.mine_cost)
-
+	print(
+		"MINE BUILT SUCCESSFULLY: ",
+		mountain_id,
+		" | Cost: $",
+		mountain_system.mine_cost
+	)
+	
 func _handle_building_move(mouse_pos, world):
 	var center = Vector2(600, 130)
 	var destination = world.land_selection.get_selected_tile(

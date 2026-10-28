@@ -17,6 +17,14 @@ var map_center = Vector2(600, 130)
 
 var mountain_texture = preload("res://BuildingImages/mountain.png")
 
+var stone_mine_texture = preload(
+	"res://BuildingImages/stone_mine.png"
+)
+
+var iron_mine_texture = preload(
+	"res://BuildingImages/iron_mine.png"
+)
+
 var rng = RandomNumberGenerator.new()
 
 
@@ -216,6 +224,31 @@ func _get_pickaxe_position(mountain):
 		draw_size.x * 0.50,
 		draw_size.y * 0.55
 	)
+	
+func get_unbuilt_mountain_at_position(mouse_pos, resource_id):
+	if world == null:
+		return ""
+
+	for mountain_id in mountains.keys():
+		var mountain = mountains[mountain_id]
+
+		if mountain["mine_built"]:
+			continue
+
+		if str(mountain["resource_id"]) != str(resource_id):
+			continue
+
+		var pickaxe_pos = _get_pickaxe_position(mountain)
+
+		var hit_rect = Rect2(
+			pickaxe_pos - Vector2(24, 24),
+			Vector2(48, 48)
+		)
+
+		if hit_rect.has_point(mouse_pos):
+			return str(mountain_id)
+
+	return ""
 
 
 func _draw():
@@ -229,26 +262,29 @@ func _draw():
 		var draw_pos = draw_data["draw_pos"]
 		var draw_size = draw_data["draw_size"]
 
-		# رسم تصویر کوه
+		# Draw mountain image.
 		draw_texture_rect(
 			mountain_texture,
 			Rect2(draw_pos, draw_size),
 			false
 		)
 
-		var marker_pos = world.grid_to_screen(
-			mountain["mine_point"],
-			map_center
-		)
-
-		var is_iron = mountain["resource_id"] == "iron_ore"
+		var is_iron = str(mountain["resource_id"]) == "iron_ore"
 
 		if mountain["mine_built"]:
-			_draw_mine(marker_pos, is_iron)
+			var mine_texture = stone_mine_texture
+
+			if is_iron:
+				mine_texture = iron_mine_texture
+
+			_draw_mine_texture(
+				mountain,
+				mine_texture
+			)
 		else:
+			# Show the pickaxe marker before construction.
 			var pickaxe_pos = _get_pickaxe_position(mountain)
 
-			# دسته چوبی کلنگ
 			draw_line(
 				pickaxe_pos + Vector2(-5, 7),
 				pickaxe_pos + Vector2(6, -7),
@@ -256,7 +292,6 @@ func _draw():
 				4.0
 			)
 
-			# سر فلزی کلنگ
 			draw_line(
 				pickaxe_pos + Vector2(-10, -6),
 				pickaxe_pos + Vector2(9, -9),
@@ -264,81 +299,41 @@ func _draw():
 				5.0
 			)
 
+func _draw_mine_texture(mountain, mine_texture):
+	if mine_texture == null:
+		return
 
-func _draw_mine(pos, is_iron):
-	var base_color = Color(0.45, 0.29, 0.16)
-
-	if is_iron:
-		base_color = Color(0.32, 0.35, 0.39)
-
-	var foundation = PoolVector2Array([
-		pos + Vector2(-19, 8),
-		pos + Vector2(0, 0),
-		pos + Vector2(19, 8),
-		pos + Vector2(0, 16)
-	])
-
-	draw_colored_polygon(
-		foundation,
-		Color(0.22, 0.20, 0.18)
+	var marker_pos = world.grid_to_screen(
+		mountain["mine_point"],
+		map_center
 	)
 
-	var building = PoolVector2Array([
-		pos + Vector2(-13, -10),
-		pos + Vector2(0, -18),
-		pos + Vector2(13, -10),
-		pos + Vector2(13, 5),
-		pos + Vector2(-13, 5)
-	])
+	var texture_size = mine_texture.get_size()
 
-	draw_colored_polygon(building, base_color)
+	if texture_size.x <= 0 or texture_size.y <= 0:
+		return
 
-	draw_polyline(
-		building,
-		Color(0.12, 0.12, 0.12),
-		2.0,
-		true
+	# Fit the mine sprite while preserving its aspect ratio.
+	var target_size = Vector2(80, 72)
+
+	var scale_factor = min(
+		target_size.x / texture_size.x,
+		target_size.y / texture_size.y
 	)
 
-	draw_rect(
-		Rect2(pos + Vector2(-4, -2), Vector2(8, 7)),
-		Color(0.12, 0.10, 0.08)
+	var draw_size = texture_size * scale_factor
+
+	# Align the bottom center of the mine sprite to its grid point.
+	var draw_pos = marker_pos - Vector2(
+		draw_size.x / 2.0,
+		draw_size.y
 	)
 
-	draw_line(
-		pos + Vector2(-8, -10),
-		pos + Vector2(-8, -27),
-		Color(0.20, 0.17, 0.14),
-		3.0
+	draw_texture_rect(
+		mine_texture,
+		Rect2(draw_pos, draw_size),
+		false
 	)
-
-	draw_line(
-		pos + Vector2(8, -10),
-		pos + Vector2(8, -27),
-		Color(0.20, 0.17, 0.14),
-		3.0
-	)
-
-	draw_line(
-		pos + Vector2(-11, -24),
-		pos + Vector2(11, -24),
-		Color(0.18, 0.16, 0.13),
-		3.0
-	)
-
-	if is_iron:
-		draw_circle(
-			pos + Vector2(17, -18),
-			5.0,
-			Color(0.70, 0.76, 0.84)
-		)
-	else:
-		draw_circle(
-			pos + Vector2(17, -18),
-			5.0,
-			Color(0.85, 0.75, 0.55)
-		)
-
 
 func is_grid_blocked(grid_pos):
 	for mountain in mountains.values():
@@ -416,15 +411,36 @@ func get_built_mine_at_position(mouse_pos):
 		if not mountain["mine_built"]:
 			continue
 
+		var is_iron = str(mountain["resource_id"]) == "iron_ore"
+		var mine_texture = stone_mine_texture
+
+		if is_iron:
+			mine_texture = iron_mine_texture
+
+		if mine_texture == null:
+			continue
+
 		var marker_pos = world.grid_to_screen(
 			mountain["mine_point"],
 			map_center
 		)
 
-		var mine_rect = Rect2(
-			marker_pos + Vector2(-23, -32),
-			Vector2(46, 54)
+		var texture_size = mine_texture.get_size()
+		var target_size = Vector2(80, 72)
+
+		var scale_factor = min(
+			target_size.x / texture_size.x,
+			target_size.y / texture_size.y
 		)
+
+		var draw_size = texture_size * scale_factor
+
+		var draw_pos = marker_pos - Vector2(
+			draw_size.x / 2.0,
+			draw_size.y
+		)
+
+		var mine_rect = Rect2(draw_pos, draw_size)
 
 		if mine_rect.has_point(mouse_pos):
 			return str(mountain_id)

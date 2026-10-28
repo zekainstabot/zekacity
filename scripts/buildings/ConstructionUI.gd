@@ -22,6 +22,8 @@ const BUILDING_IMAGE_PATHS = {
 	"road": "res://BuildingImages/road_straight.png",
 	"residential_tower": "res://BuildingImages/residential_tower.png",
 	"grocery_store": "res://BuildingImages/grocery_store.png",
+	"stone_mine": "res://BuildingImages/stone_mine.png",
+	"iron_mine": "res://BuildingImages/iron_mine.png",
 	"bakery": "res://BuildingImages/grocery_store.png",
 	"restaurant": "res://BuildingImages/grocery_store.png",
 	"office": "res://BuildingImages/high_apartment.png",
@@ -45,6 +47,8 @@ const BUILDING_ICONS = {
 	"small_house": "House",
 	"normal_house": "House",
 	"low_apartment": "Apartments",
+	"stone_mine": "Stone Mine",
+	"iron_mine": "Iron Mine",
 	"high_apartment": "Apartments",
 	"residential_tower": "Tower",
 	"grocery_store": "Shop",
@@ -134,20 +138,70 @@ func _load_buildings():
 	ids.sort()
 
 	for building_id in ids:
+		var id = str(building_id)
 		var data = all_data[building_id]
 
 		if typeof(data) != TYPE_DICTIONARY:
 			continue
 
 		var item = data.duplicate(true)
-		item["id"] = str(building_id)
-		item["icon"] = BUILDING_ICONS.get(
-			str(building_id),
-			"Building"
-		)
+		item["id"] = id
+		item["icon"] = BUILDING_ICONS.get(id, "Building")
+
+		if id == "stone_mine" or id == "iron_mine":
+			item["category"] = "Mining"
+			item["name"] = (
+				"Stone Mine"
+				if id == "stone_mine"
+				else "Iron Mine"
+			)
+			item["cost"] = int(item.get("cost", 1500))
+			item["population_required"] = int(
+				item.get("population_required", 0)
+			)
+
 		buildings.append(item)
-			# Add road to construction menu
-	if not all_data.has("road"):
+
+	# Add mines even if they are missing from BuildingData.
+	var mine_definitions = [
+		{
+			"id": "stone_mine",
+			"name": "Stone Mine",
+			"category": "Mining",
+			"cost": 1500,
+			"population_required": 0,
+			"icon": "Stone Mine"
+		},
+		{
+			"id": "iron_mine",
+			"name": "Iron Mine",
+			"category": "Mining",
+			"cost": 1500,
+			"population_required": 0,
+			"icon": "Iron Mine"
+		}
+	]
+
+	for mine in mine_definitions:
+		var already_exists = false
+
+		for building in buildings:
+			if str(building.get("id", "")) == mine["id"]:
+				already_exists = true
+				break
+
+		if not already_exists:
+			buildings.append(mine)
+
+	# Add road if missing.
+	var road_exists = false
+
+	for building in buildings:
+		if str(building.get("id", "")) == "road":
+			road_exists = true
+			break
+
+	if not road_exists:
 		buildings.append({
 			"id": "road",
 			"name": "Road",
@@ -157,6 +211,9 @@ func _load_buildings():
 			"icon": "Road"
 		})
 
+	print("CONSTRUCTION BUILDINGS LOADED: ", buildings.size())
+	print("STONE MINE AVAILABLE: ", true)
+	print("IRON MINE AVAILABLE: ", true)
 
 func _make_font(font_size):
 	if font_cache.has(font_size):
