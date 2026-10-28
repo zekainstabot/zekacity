@@ -3,9 +3,18 @@ extends Node2D
 
 # ZekaCity - CitizenSystem.gd
 # Godot 3.6
-# Road-based citizen movement, visuals and persistence
 
 const CITIZEN_VISUAL_PATH = "res://scripts/citizens/CitizenVisual.gd"
+
+const JOB_CAPACITY = {
+	"grocery_store": 3,
+	"bakery": 4,
+	"restaurant": 6,
+	"office": 20,
+	"mineral_market": 3,
+	"shopping_mall": 30,
+	"factory": 25
+}
 
 var world = null
 var citizens = []
@@ -43,7 +52,6 @@ func _process(delta):
 		var current = citizen["grid_pos"]
 		var target = citizen["target_grid"]
 
-		# اگر مقصد فعلی همان خانه باشد، حرکت نکن.
 		if current == target:
 			citizen["move_progress"] = 0.0
 			_update_citizen_visual(citizen)
@@ -118,6 +126,7 @@ func sync_residents():
 
 	citizens = updated
 	_rebuild_visuals()
+	_sync_jobs()
 
 
 func _count_home_residents(list, home_key):
@@ -134,8 +143,6 @@ func _create_citizen(home_key, home_grid):
 	var citizen_id = "citizen_" + str(next_citizen_id)
 	next_citizen_id += 1
 
-	# آدمک در صورت وجود جاده از ابتدا روی نزدیک‌ترین خانه جاده قرار می‌گیرد.
-	# این کار مانع حرکت روی ساختمان‌ها و زمین‌های خالی می‌شود.
 	var start_grid = _find_nearest_road(home_grid)
 
 	var citizen = {
@@ -147,7 +154,14 @@ func _create_citizen(home_key, home_grid):
 		"previous_grid": start_grid,
 		"move_progress": 0.0,
 		"move_duration": 1.0,
-		"skin_seed": rng.randi_range(1, 1000000)
+		"skin_seed": rng.randi_range(1, 1000000),
+
+		# Personal finances
+		"wallet": 0,
+
+		# Employment
+		"job_id": "",
+		"work_grid": home_grid
 	}
 
 	_choose_next_target(citizen)
@@ -243,14 +257,12 @@ func _has_road_axis(grid, axis):
 func _has_road_connection(from_grid, to_grid):
 	var difference = to_grid - from_grid
 
-	# حرکت افقی؛ هر دو خانه باید قطعه جاده افقی داشته باشند.
 	if difference.y == 0 and abs(difference.x) == 1:
 		return (
 			_has_road_axis(from_grid, 0)
 			and _has_road_axis(to_grid, 0)
 		)
 
-	# حرکت عمودی؛ هر دو خانه باید قطعه جاده عمودی داشته باشند.
 	if difference.x == 0 and abs(difference.y) == 1:
 		return (
 			_has_road_axis(from_grid, 1)
@@ -294,15 +306,12 @@ func _choose_next_target(citizen):
 	var previous = citizen.get("previous_grid", current)
 	var road_tiles = _get_road_tiles()
 
-	# بدون جاده حرکت نکن.
 	if road_tiles.empty():
 		citizen["target_grid"] = current
 		citizen["move_progress"] = 0.0
 		citizen["move_duration"] = 1.0
 		return
 
-	# اگر خانه فعلی جاده ندارد، نزدیک‌ترین خانه جاده را پیدا کن.
-	# این حالت برای زمانی است که جاده بعد از ایجاد آدمک ساخته شود.
 	if not road_tiles.has(current):
 		current = _find_nearest_road(current)
 		citizen["grid_pos"] = current
@@ -310,14 +319,12 @@ func _choose_next_target(citizen):
 		citizen["previous_grid"] = current
 		previous = current
 
-	# جهت حرکت قبلی را برای ادامه مسیر مستقیم بررسی کن.
 	var direction = current - previous
 	var neighbors = []
 
 	if direction != Vector2.ZERO:
 		neighbors.append(current + direction)
 
-	# خانه‌های مجاور به‌عنوان مسیرهای جایگزین.
 	neighbors.append(current + Vector2(1, 0))
 	neighbors.append(current + Vector2(0, 1))
 	neighbors.append(current + Vector2(-1, 0))
@@ -338,13 +345,10 @@ func _choose_next_target(citizen):
 		if not candidates.has(neighbor):
 			candidates.append(neighbor)
 
-	# تا وقتی راه دیگری وجود دارد، فوراً به خانه قبلی برنگرد.
 	if candidates.size() > 1 and candidates.has(previous):
 		candidates.erase(previous)
 
 	if candidates.empty():
-		# بن‌بست یا جاده بدون اتصال.
-		# اگر خانه قبلی مسیر متصل باشد، می‌توان برگشت.
 		if (
 			previous != current
 			and road_tiles.has(previous)
@@ -357,7 +361,6 @@ func _choose_next_target(citizen):
 			citizen["move_duration"] = 1.0
 			return
 
-	# اگر مسیر مستقیم در دسترس باشد، همان مسیر را ادامه بده.
 	var next_grid = candidates[0]
 
 	if direction != Vector2.ZERO:
@@ -393,10 +396,7 @@ func _update_citizen_visual(citizen):
 	var start = citizen["grid_pos"]
 	var target = citizen["target_grid"]
 
-	var duration = max(
-		0.1,
-		float(citizen["move_duration"])
-	)
+	var duration = max(0.1, float(citizen["move_duration"]))
 
 	var weight = clamp(
 		float(citizen["move_progress"]) / duration,
@@ -411,9 +411,7 @@ func _update_citizen_visual(citizen):
 		Vector2(600, 130)
 	)
 
-	visual.z_index = int(
-		(grid_pos.x + grid_pos.y) * 10
-	) + 5
+	visual.z_index = int((grid_pos.x + grid_pos.y) * 10) + 5
 
 
 func _rebuild_visuals():
@@ -437,8 +435,6 @@ func _rebuild_visuals():
 		add_child(visual)
 
 		visual.setup(int(citizen.get("skin_seed", 0)))
-
-		# اندازه آدمک: 70 درصد اندازه اصلی
 		visual.scale = Vector2(0.7, 0.7)
 
 		visuals[citizen_id] = visual
@@ -465,13 +461,28 @@ func get_save_data():
 			"target_grid": _vector_to_data(
 				citizen.get("target_grid", Vector2.ZERO)
 			),
+			"previous_grid": _vector_to_data(
+				citizen.get("previous_grid", Vector2.ZERO)
+			),
 			"move_progress": float(
 				citizen.get("move_progress", 0.0)
 			),
 			"move_duration": float(
 				citizen.get("move_duration", 1.0)
 			),
-			"skin_seed": int(citizen.get("skin_seed", 0))
+			"skin_seed": int(citizen.get("skin_seed", 0)),
+
+			# Employment
+			"job_id": str(citizen.get("job_id", "")),
+			"work_grid": _vector_to_data(
+				citizen.get(
+					"work_grid",
+					citizen.get("home_grid", Vector2.ZERO)
+				)
+			),
+
+			# Wallet
+			"wallet": int(citizen.get("wallet", 0))
 		})
 
 	return result
@@ -507,17 +518,17 @@ func load_data(saved_citizens):
 			saved.get("grid_pos", {})
 		)
 
-		var target_grid = _data_to_vector(
-			saved.get("target_grid", {})
-		)
-
 		citizens.append({
 			"id": citizen_id,
 			"home_key": str(saved.get("home_key", "")),
 			"home_grid": home_grid,
 			"grid_pos": grid_pos,
-			"target_grid": target_grid,
-			"previous_grid": grid_pos,
+			"target_grid": _data_to_vector(
+				saved.get("target_grid", saved.get("grid_pos", {}))
+			),
+			"previous_grid": _data_to_vector(
+				saved.get("previous_grid", saved.get("grid_pos", {}))
+			),
 			"move_progress": float(
 				saved.get("move_progress", 0.0)
 			),
@@ -525,7 +536,16 @@ func load_data(saved_citizens):
 				0.1,
 				float(saved.get("move_duration", 1.0))
 			),
-			"skin_seed": int(saved.get("skin_seed", 0))
+			"skin_seed": int(saved.get("skin_seed", 0)),
+
+			# Employment
+			"job_id": str(saved.get("job_id", "")),
+			"work_grid": _data_to_vector(
+				saved.get("work_grid", saved.get("home_grid", {}))
+			),
+
+			# Wallet
+			"wallet": int(saved.get("wallet", 0))
 		})
 
 	sync_residents()
@@ -546,3 +566,113 @@ func _data_to_vector(value):
 		float(value.get("x", 0)),
 		float(value.get("y", 0))
 	)
+
+
+# --------------------------------------------------
+# JOBS AND EMPLOYMENT
+# --------------------------------------------------
+
+func _sync_jobs():
+	if world == null:
+		return
+
+	var available_jobs = []
+
+	# Create job slots
+	for building in world.placed_buildings:
+		var building_id = str(building.get("id", ""))
+		var capacity = int(JOB_CAPACITY.get(building_id, 0))
+		var building_grid = building.get("grid", Vector2.ZERO)
+
+		for slot in range(capacity):
+			available_jobs.append({
+				"building_id": building_id,
+				"grid": building_grid,
+				"slot": slot,
+				"occupied": false
+			})
+
+	# Preserve valid existing jobs
+	for citizen in citizens:
+		if not citizen.has("job_id"):
+			citizen["job_id"] = ""
+
+		if not citizen.has("work_grid"):
+			citizen["work_grid"] = citizen.get(
+				"home_grid",
+				Vector2.ZERO
+			)
+
+		var old_job_id = str(citizen.get("job_id", ""))
+		var old_work_grid = citizen.get(
+			"work_grid",
+			citizen.get("home_grid", Vector2.ZERO)
+		)
+
+		var job_preserved = false
+
+		if old_job_id != "":
+			for job in available_jobs:
+				if job["occupied"]:
+					continue
+
+				if str(job["building_id"]) != old_job_id:
+					continue
+
+				if job["grid"] != old_work_grid:
+					continue
+
+				job["occupied"] = true
+				job_preserved = true
+				break
+
+		if not job_preserved:
+			citizen["job_id"] = ""
+			citizen["work_grid"] = citizen.get(
+				"home_grid",
+				Vector2.ZERO
+			)
+
+	# Assign available jobs to unemployed citizens
+	for citizen in citizens:
+		if str(citizen.get("job_id", "")) != "":
+			continue
+
+		for job in available_jobs:
+			if job["occupied"]:
+				continue
+
+			job["occupied"] = true
+			citizen["job_id"] = job["building_id"]
+			citizen["work_grid"] = job["grid"]
+			break
+
+	# Employment statistics
+	var employed = 0
+
+	for citizen in citizens:
+		if str(citizen.get("job_id", "")) != "":
+			employed += 1
+
+	print(
+		"EMPLOYMENT UPDATED | Population: ",
+		citizens.size(),
+		" | Employed: ",
+		employed,
+		" | Unemployed: ",
+		citizens.size() - employed
+	)
+
+
+func get_employment_stats():
+	var employed = 0
+
+	for citizen in citizens:
+		if str(citizen.get("job_id", "")) != "":
+			employed += 1
+
+	return {
+		"population": citizens.size(),
+		"employed": employed,
+		"unemployed": citizens.size() - employed
+	}

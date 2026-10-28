@@ -15,6 +15,8 @@ var road_placement_direction = -1
 var selected_building_for_placement = ""
 
 var placed_buildings = []
+# پول شخصی بازیکن؛ مستقل از خزانه شهرداری
+var player_money = 1000
 var building_system = null
 
 var citizen_system = null
@@ -25,6 +27,10 @@ var save_system = preload(
 
 var autosave_elapsed = 0.0
 var autosave_interval = 30.0
+
+var business_economy_system = preload(
+	"res://scripts/economy/BusinessEconomySystem.gd"
+).new()
 
 var storage_system = preload(
 	"res://scripts/resources/StorageSystem.gd"
@@ -257,10 +263,22 @@ func _ready():
 	land_system.initialize(grid_size)
 
 	if placed_buildings.empty():
-		placed_buildings.append({
-			"grid": Vector2(0, 0),
-			"id": "small_house"
-		})
+		var new_building = {
+		"grid": Vector2(0, 0),
+		"id": "small_house",
+		"owner_type": "player",
+		"owner_id": "player",
+		"business_balance": 0,
+		"unpaid_wages": 0,
+		"last_revenue": 0,
+		"last_wages": 0,
+		"last_profit": 0,
+		"total_revenue": 0,
+		"total_wages": 0,
+		"total_profit": 0
+	}
+
+		placed_buildings.append(new_building)
 
 	resource_manager.set_storage_system(storage_system)
 	storage_system.sync_warehouses(placed_buildings)
@@ -721,10 +739,23 @@ func _place_building(building_id):
 			print("BUILDING PLACEMENT FAILED: PAYMENT_FAILED")
 			return false
 
-	placed_buildings.append({
+	# Create building with ownership and business accounting data.
+	var new_building = {
 		"grid": grid_pos,
-		"id": building_id
-	})
+		"id": building_id,
+		"owner_type": "player",
+		"owner_id": "player",
+		"business_balance": 0,
+		"unpaid_wages": 0,
+		"last_revenue": 0,
+		"last_wages": 0,
+		"last_profit": 0,
+		"total_revenue": 0,
+		"total_wages": 0,
+		"total_profit": 0
+	}
+
+	placed_buildings.append(new_building)
 
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
@@ -953,6 +984,7 @@ func _on_market_sell_requested(resource_id, amount):
 # BUILDING DEMOLITION
 # =========================================
 
+
 func _confirm_building_demolition():
 	if pending_demolition_index < 0:
 		return
@@ -985,28 +1017,32 @@ func _confirm_building_demolition():
 	if building_system != null:
 		building_system.set_buildings(placed_buildings)
 
-	# Keep shared warehouse capacity synchronized after demolition.
 	storage_system.sync_warehouses(placed_buildings)
-	
-	
+
 	if citizen_system != null:
 		citizen_system.sync_residents()
-
+		_update_population_label()
 
 	_refresh_building_visuals()
 	_update_treasury_label()
 	update()
+
 	save_system.save_world(self)
 
 	
+
 func _process(delta):
 	if save_system == null:
 		return
-		
-		
+
+	if business_economy_system != null:
+		business_economy_system.process_economy(
+			delta,
+			self
+		)
+
 	if world_ui_controller != null:
 		world_ui_controller.update_land_purchase_areas()
-
 
 	autosave_elapsed += delta
 

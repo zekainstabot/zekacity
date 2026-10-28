@@ -16,6 +16,7 @@ func save_world(world):
 	var data = {
 		"version": SAVE_VERSION,
 		"grid_size": world.grid_size,
+		"player_money": int(world.player_money),
 		"placed_buildings": [],
 		"owned_tiles": [],
 		"treasury": {},
@@ -23,41 +24,77 @@ func save_world(world):
 		"mineral_market": {},
 		"roads": [],
 		"mountains": [],
-		"mines": []
+		"mines": [],
+		"citizens": []
 	}
 
-	# ساختمان‌ها
+	# ساختمان‌ها، مالکیت و حساب کسب‌وکار
 	for building in world.placed_buildings:
 		data["placed_buildings"].append({
 			"id": str(building.get("id", "")),
 			"grid": _vector_to_data(
 				building.get("grid", Vector2.ZERO)
+			),
+			"owner_type": str(
+				building.get("owner_type", "player")
+			),
+			"owner_id": str(
+				building.get("owner_id", "player")
+			),
+			"business_balance": int(
+				building.get("business_balance", 0)
+			),
+			"unpaid_wages": int(
+				building.get("unpaid_wages", 0)
+			),
+			"last_revenue": int(
+				building.get("last_revenue", 0)
+			),
+			"last_wages": int(
+				building.get("last_wages", 0)
+			),
+			"last_profit": int(
+				building.get("last_profit", 0)
+			),
+			"total_revenue": int(
+				building.get("total_revenue", 0)
+			),
+			"total_wages": int(
+				building.get("total_wages", 0)
+			),
+			"total_profit": int(
+				building.get("total_profit", 0)
 			)
 		})
 
 	# زمین‌های خریداری‌شده
-	for tile in world.land_system.owned_tiles:
-		data["owned_tiles"].append(
-			_vector_to_data(tile)
-		)
+	if world.land_system != null:
+		for tile in world.land_system.owned_tiles:
+			data["owned_tiles"].append(
+				_vector_to_data(tile)
+			)
 
 	# خزانه شهرداری
 	var treasury = world.city_treasury
 
-	data["treasury"] = {
-		"balance": treasury.balance,
-		"locked_money": treasury.locked_money,
-		"central_bank_built": treasury.central_bank_built,
-		"central_bank_rebuild_days_left": (
-			treasury.central_bank_rebuild_days_left
-		),
-		"municipal_banks": treasury.municipal_banks.duplicate(true)
-	}
+	if treasury != null:
+		data["treasury"] = {
+			"balance": treasury.balance,
+			"locked_money": treasury.locked_money,
+			"central_bank_built": treasury.central_bank_built,
+			"central_bank_rebuild_days_left": (
+				treasury.central_bank_rebuild_days_left
+			),
+			"municipal_banks": (
+				treasury.municipal_banks.duplicate(true)
+			)
+		}
 
 	# منابع شهرداری
-	data["resources"] = (
-		world.resource_manager.get_all_amounts()
-	)
+	if world.resource_manager != null:
+		data["resources"] = (
+			world.resource_manager.get_all_amounts()
+		)
 
 	# موجودی بازار مواد معدنی
 	var market = world.get("mineral_market_system")
@@ -103,10 +140,16 @@ func save_world(world):
 					"resource_id": str(mine["resource_id"]),
 					"active": bool(mine["active"]),
 					"remaining": int(mine["remaining"]),
-					"initial_reserve": int(mine["initial_reserve"]),
+					"initial_reserve": int(
+						mine["initial_reserve"]
+					),
 					"extracted": int(mine["extracted"]),
 					"elapsed": float(mine["elapsed"])
 				})
+
+	# شهروندها
+	if world.citizen_system != null:
+		data["citizens"] = world.citizen_system.get_save_data()
 
 	# نوشتن فایل ذخیره
 	var file = File.new()
@@ -150,7 +193,12 @@ func load_world(world):
 		push_error("SaveSystem: Unsupported save version")
 		return false
 
-	# ساختمان‌ها
+	# بازیابی پول شخصی بازیکن
+	world.player_money = int(
+		data.get("player_money", 1000)
+	)
+
+	# ساختمان‌ها و حساب‌های کسب‌وکار
 	world.placed_buildings.clear()
 
 	for building in data.get("placed_buildings", []):
@@ -158,48 +206,97 @@ func load_world(world):
 			"id": str(building.get("id", "")),
 			"grid": _data_to_vector(
 				building.get("grid", {})
+			),
+			"owner_type": str(
+				building.get("owner_type", "player")
+			),
+			"owner_id": str(
+				building.get("owner_id", "player")
+			),
+			"business_balance": int(
+				building.get("business_balance", 0)
+			),
+			"unpaid_wages": int(
+				building.get("unpaid_wages", 0)
+			),
+			"last_revenue": int(
+				building.get("last_revenue", 0)
+			),
+			"last_wages": int(
+				building.get("last_wages", 0)
+			),
+			"last_profit": int(
+				building.get("last_profit", 0)
+			),
+			"total_revenue": int(
+				building.get("total_revenue", 0)
+			),
+			"total_wages": int(
+				building.get("total_wages", 0)
+			),
+			"total_profit": int(
+				building.get("total_profit", 0)
 			)
 		})
 
-	# زمین‌های خریداری‌شده
-	world.land_system.owned_tiles.clear()
+	# بازیابی شهروندها
+	if world.citizen_system != null:
+		var saved_citizens = data.get("citizens", [])
 
-	for tile in data.get("owned_tiles", []):
-		world.land_system.owned_tiles.append(
-			_data_to_vector(tile)
-		)
+		if typeof(saved_citizens) == TYPE_ARRAY:
+			world.citizen_system.load_data(saved_citizens)
+
+	# زمین‌های خریداری‌شده
+	if world.land_system != null:
+		world.land_system.owned_tiles.clear()
+
+		for tile in data.get("owned_tiles", []):
+			world.land_system.owned_tiles.append(
+				_data_to_vector(tile)
+			)
 
 	# خزانه شهرداری
 	var treasury_data = data.get("treasury", {})
 	var treasury = world.city_treasury
 
-	treasury.balance = int(
-		treasury_data.get("balance", treasury.starting_money)
-	)
-	treasury.locked_money = int(
-		treasury_data.get("locked_money", 0)
-	)
-	treasury.central_bank_built = bool(
-		treasury_data.get("central_bank_built", false)
-	)
-	treasury.central_bank_rebuild_days_left = int(
-		treasury_data.get("central_bank_rebuild_days_left", 0)
-	)
-	treasury.municipal_banks = treasury_data.get(
-		"municipal_banks", []
-	).duplicate(true)
+	if treasury != null:
+		treasury.balance = int(
+			treasury_data.get(
+				"balance",
+				treasury.starting_money
+			)
+		)
+
+		treasury.locked_money = int(
+			treasury_data.get("locked_money", 0)
+		)
+
+		treasury.central_bank_built = bool(
+			treasury_data.get("central_bank_built", false)
+		)
+
+		treasury.central_bank_rebuild_days_left = int(
+			treasury_data.get(
+				"central_bank_rebuild_days_left",
+				0
+			)
+		)
+
+		treasury.municipal_banks = treasury_data.get(
+			"municipal_banks", []
+		).duplicate(true)
 
 	# منابع شهرداری
 	var saved_resources = data.get("resources", {})
 
-	for resource_id in world.resource_manager.amounts.keys():
-		if saved_resources.has(resource_id):
-			world.resource_manager.amounts[resource_id] = int(
-				saved_resources[resource_id]
-			)
+	if world.resource_manager != null:
+		for resource_id in world.resource_manager.amounts.keys():
+			if saved_resources.has(resource_id):
+				world.resource_manager.amounts[resource_id] = int(
+					saved_resources[resource_id]
+				)
 
 	# بازیابی موجودی بازار مواد معدنی
-	# اگر فایل ذخیره قدیمی باشد، موجودی بازار صفر می‌شود.
 	var market = world.get("mineral_market_system")
 
 	if market != null:
@@ -215,7 +312,9 @@ func load_world(world):
 
 		for road in data.get("roads", []):
 			road_system.roads.append({
-				"grid": _data_to_vector(road.get("grid", {})),
+				"grid": _data_to_vector(
+					road.get("grid", {})
+				),
 				"direction": int(road.get("direction", 0))
 			})
 
@@ -262,16 +361,21 @@ func load_world(world):
 					"initial_reserve": int(
 						mine.get("initial_reserve", 0)
 					),
-					"extracted": int(mine.get("extracted", 0)),
-					"elapsed": float(mine.get("elapsed", 0.0))
+					"extracted": int(
+						mine.get("extracted", 0)
+					),
+					"elapsed": float(
+						mine.get("elapsed", 0.0)
+					)
 				}
 
 		mountain_system.update()
 
 	# بازسازی ظرفیت انبارها
-	world.storage_system.sync_warehouses(
-		world.placed_buildings
-	)
+	if world.storage_system != null:
+		world.storage_system.sync_warehouses(
+			world.placed_buildings
+		)
 
 	# بازسازی ساختمان‌ها
 	if world.building_system != null:
