@@ -26,13 +26,11 @@ mouse_filter = 1
 script = ExtResource( 7 )
 
 [node name="PauseButton" type="Button" parent="UI"]
-anchor_left = 1.0
-anchor_right = 1.0
-margin_left = -100.0
+margin_left = 16.0
 margin_top = 16.0
-margin_right = -16.0
-margin_bottom = 100.0
-rect_min_size = Vector2( 84, 84 )
+margin_right = 116.0
+margin_bottom = 116.0
+rect_min_size = Vector2( 100, 100 )
 focus_mode = 0
 text = "II"
 

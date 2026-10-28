@@ -1,4 +1,3 @@
-
 extends Camera2D
 
 var dragging = false
@@ -44,9 +43,7 @@ func _is_over_construction_panel(screen_position):
 
 
 func _input(event):
-	# -------------------------------
 	# Mouse controls
-	# -------------------------------
 	if event is InputEventMouseButton:
 		if _is_over_construction_panel(event.position):
 			if event.button_index == BUTTON_LEFT:
@@ -73,13 +70,9 @@ func _input(event):
 
 			global_position -= event.relative * zoom
 
-	# -------------------------------
 	# Android touch controls
-	# -------------------------------
 	elif event is InputEventScreenTouch:
 		if event.pressed:
-			# Touch began on the construction panel.
-			# Camera must ignore this finger until release.
 			if _is_over_construction_panel(event.position):
 				ui_touch_points[event.index] = true
 				dragging = false
@@ -87,8 +80,6 @@ func _input(event):
 
 			touch_points[event.index] = event.position
 
-			# Do not start camera movement while another
-			# finger is interacting with the UI.
 			if ui_touch_points.size() > 0:
 				dragging = false
 				return
@@ -104,20 +95,15 @@ func _input(event):
 			dragging = false
 
 	elif event is InputEventScreenDrag:
-		# Ignore fingers that started on the UI.
 		if ui_touch_points.has(event.index):
 			return
 
-		# Never move or zoom the camera while a finger
-		# is interacting with the construction UI.
 		if ui_touch_points.size() > 0:
 			return
 
 		if not touch_points.has(event.index):
 			return
 
-		# If a map gesture reaches the construction panel,
-		# stop camera movement for the rest of that gesture.
 		if _is_over_construction_panel(event.position):
 			ui_touch_points[event.index] = true
 			touch_points.erase(event.index)
@@ -126,32 +112,64 @@ func _input(event):
 			return
 
 		var old_distance = last_pinch_distance
+
 		touch_points[event.index] = event.position
 
 		if touch_points.size() >= 2:
 			var new_distance = _get_pinch_distance()
 
 			if old_distance > 0.0 and new_distance > 0.0:
-				var factor = old_distance / new_distance
-				var new_zoom = zoom * factor
-
-				new_zoom.x = clamp(
-					new_zoom.x,
-					zoom_min,
-					zoom_max
+				_apply_pinch_zoom(
+					old_distance,
+					new_distance
 				)
-				new_zoom.y = clamp(
-					new_zoom.y,
-					zoom_min,
-					zoom_max
-				)
-
-				zoom = new_zoom
 
 			last_pinch_distance = new_distance
 
 		elif touch_points.size() == 1:
 			global_position -= event.relative * zoom
+
+
+func _apply_pinch_zoom(old_distance, new_distance):
+	if old_distance <= 0.0 or new_distance <= 0.0:
+		return
+
+	var keys = touch_points.keys()
+
+	if keys.size() < 2:
+		return
+
+	var point_a = touch_points[keys[0]]
+	var point_b = touch_points[keys[1]]
+	var midpoint = (point_a + point_b) / 2.0
+
+	var screen_center = get_viewport_rect().size / 2.0
+
+	# Keep the map point beneath the fingers fixed during zoom.
+	var world_anchor = global_position + (
+		(midpoint - screen_center) * zoom
+	)
+
+	var factor = old_distance / new_distance
+	var new_zoom_value = clamp(
+		zoom.x * factor,
+		zoom_min,
+		zoom_max
+	)
+
+	var new_zoom = Vector2(
+		new_zoom_value,
+		new_zoom_value
+	)
+
+	if is_equal_approx(new_zoom.x, zoom.x):
+		return
+
+	zoom = new_zoom
+
+	global_position = world_anchor - (
+		(midpoint - screen_center) * zoom
+	)
 
 
 func _apply_zoom(amount, screen_position):

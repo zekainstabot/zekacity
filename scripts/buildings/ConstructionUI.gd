@@ -176,7 +176,6 @@ func _build_ui():
 	main_panel = Panel.new()
 	main_panel.name = "ConstructionPanel"
 	main_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	main_panel.clip_contents = true
 
 	main_panel.anchor_left = 0.5
 	main_panel.anchor_right = 0.5

@@ -210,14 +210,27 @@ func _ready():
 
 	treasury_label = ui_elements.get("treasury_label")
 
+	
 	population_label = Label.new()
 	population_label.name = "PopulationLabel"
 	population_label.text = "Population: 0"
+
+	population_label.rect_min_size = Vector2(320, 36)
+	population_label.rect_size = Vector2(320, 36)
+
+	population_label.anchor_left = 0.0
+	population_label.anchor_right = 0.0
+	population_label.anchor_top = 0.0
+	population_label.anchor_bottom = 0.0
+
 	population_label.rect_position = Vector2(
-	get_viewport().get_visible_rect().size.x - 50,
-	75
-)
-	population_label.rect_min_size = Vector2(250, 32)
+		max(8.0, get_viewport().get_visible_rect().size.x - 332.0),
+		62.0
+	)
+
+	population_label.align = Label.ALIGN_RIGHT
+	population_label.valign = Label.VALIGN_CENTER
+
 
 	population_label.add_color_override(
 		"font_color",
