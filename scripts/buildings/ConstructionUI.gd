@@ -146,6 +146,16 @@ func _load_buildings():
 			"Building"
 		)
 		buildings.append(item)
+			# Add road to construction menu
+	if not all_data.has("road"):
+		buildings.append({
+			"id": "road",
+			"name": "Road",
+			"category": "Roads",
+			"cost": 0,
+			"population_required": 0,
+			"icon": "Road"
+		})
 
 
 func _make_font(font_size):

@@ -1002,6 +1002,11 @@ func _confirm_building_demolition():
 func _process(delta):
 	if save_system == null:
 		return
+		
+		
+	if world_ui_controller != null:
+		world_ui_controller.update_land_purchase_areas()
+
 
 	autosave_elapsed += delta
 
@@ -1089,6 +1094,15 @@ func _on_BuildHouseButton_pressed():
 
 
 func _on_construction_ui_building_confirmed(building_id):
+	if building_id == "road":
+		selected_building_for_placement = ""
+
+		if has_meta("mine_placement_resource"):
+			remove_meta("mine_placement_resource")
+
+		_place_road(0)
+		return
+
 	if building_id == "stone_mine" or building_id == "iron_mine":
 		selected_building_for_placement = ""
 		road_placement_direction = -1

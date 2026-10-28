@@ -1,11 +1,17 @@
 
 extends Reference
 
+# ZekaCity - WorldUIController.gd
+# Godot 3.6
+
 var world = null
 var ui = null
 var treasury_label = null
 var buy_land_button = null
 var land_purchase_dialog = null
+
+var area_price_labels = {}
+var area_buy_buttons = {}
 
 
 func initialize(world_node, ui_node):
@@ -16,17 +22,16 @@ func initialize(world_node, ui_node):
 		push_error("WorldUIController: World node not found")
 		return {}
 
-	if ui != null:
-		_create_treasury_label()
-		_create_buy_land_button()
-	else:
+	if ui == null:
 		push_error("WorldUIController: UI node not found")
+		return {}
 
+	_create_treasury_label()
 	_create_land_purchase_dialog()
 
 	return {
 		"treasury_label": treasury_label,
-		"buy_land_button": buy_land_button,
+		"buy_land_button": null,
 		"land_purchase_dialog": land_purchase_dialog
 	}
 
@@ -69,63 +74,32 @@ func _create_treasury_label():
 	treasury_label.show()
 
 
+
+
 func _update_treasury_label_layout():
 	if treasury_label == null or ui == null:
 		return
 
-	var viewport_size = ui.get_viewport().get_visible_rect().size
-	var label_width = min(320.0, max(180.0, viewport_size.x - 150.0))
+	var population_label = ui.get_node_or_null("PopulationLabel")
 
-	treasury_label.rect_size = Vector2(label_width, 54)
-	treasury_label.rect_min_size = Vector2(label_width, 54)
-	treasury_label.rect_position = Vector2(
-		max(8.0, viewport_size.x - label_width - 12.0),
-		8.0
-	)
+	if population_label != null:
+		treasury_label.rect_position = population_label.rect_position - Vector2(0, 55)
+	else:
+		treasury_label.rect_position = Vector2(20, 15)
 
-
-func _create_buy_land_button():
-	buy_land_button = Button.new()
-	buy_land_button.name = "BuyLandButton"
-	buy_land_button.flat = true
-	buy_land_button.text = ""
-	buy_land_button.focus_mode = Control.FOCUS_NONE
-
-	if ResourceLoader.exists("res://land.png"):
-		buy_land_button.icon = load("res://land.png")
-
-	buy_land_button.expand_icon = false
-	buy_land_button.rect_min_size = Vector2(76, 76)
-	buy_land_button.visible = false
-	buy_land_button.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	buy_land_button.anchor_left = 1.0
-	buy_land_button.anchor_right = 1.0
-	buy_land_button.anchor_top = 0.0
-	buy_land_button.anchor_bottom = 0.0
-
-	buy_land_button.margin_left = -96
-	buy_land_button.margin_right = -12
-	buy_land_button.margin_top = 112
-	buy_land_button.margin_bottom = 196
-
-	ui.add_child(buy_land_button)
-
-	buy_land_button.connect(
-		"pressed",
-		world,
-		"_buy_selected_land"
-	)
+	treasury_label.anchor_left = 0.0
+	treasury_label.anchor_top = 0.0
+	treasury_label.anchor_right = 0.0
+	treasury_label.anchor_bottom = 0.0
+	treasury_label.rect_size = Vector2(350, 50)
 
 
 func _create_land_purchase_dialog():
 	land_purchase_dialog = ConfirmationDialog.new()
 	land_purchase_dialog.name = "LandPurchaseDialog"
+	land_purchase_dialog.window_title = "Buy Land"
 
-	if ui != null:
-		ui.add_child(land_purchase_dialog)
-	else:
-		world.add_child(land_purchase_dialog)
+	ui.add_child(land_purchase_dialog)
 
 	land_purchase_dialog.connect(
 		"confirmed",
@@ -135,16 +109,7 @@ func _create_land_purchase_dialog():
 
 
 func update_treasury_label():
-	if world == null:
-		print("MONEY ERROR: World is null")
-		return
-
-	if treasury_label == null:
-		print("MONEY ERROR: Money label is null")
-		return
-
-	if world.city_treasury == null:
-		print("MONEY ERROR: City treasury is null")
+	if world == null or treasury_label == null:
 		return
 
 	treasury_label.text = "Money: $" + str(
@@ -161,10 +126,116 @@ func show_land_purchase_dialog(tiles_to_buy, total_price, balance):
 		return
 
 	land_purchase_dialog.dialog_text = (
-		"Buy land in this 2x2 area?\n"
-		+ "Tiles to buy: " + str(tiles_to_buy) + "\n"
+		"Buy this 2x2 land area?\n"
+		+ "Unowned tiles: " + str(tiles_to_buy) + "\n"
 		+ "Total price: $" + str(total_price) + "\n"
-		+ "Current treasury: $" + str(balance)
+		+ "Treasury: $" + str(balance)
 	)
 
 	land_purchase_dialog.popup_centered()
+
+
+func update_land_purchase_areas():
+	if world == null or ui == null:
+		return
+
+	var road_system = world.get_node_or_null("../RoadSystem")
+	if road_system == null:
+		return
+
+	var areas = world.land_system.get_adjacent_purchase_areas()
+	var active_keys = {}
+
+	for origin in areas:
+		var key = _area_key(origin)
+		active_keys[key] = true
+
+		if not area_price_labels.has(key):
+			_create_area_controls(origin, key)
+
+		var price = world.land_system.get_area_price(
+			origin,
+			Vector2.ZERO,
+			road_system
+		)
+
+		var label = area_price_labels[key]
+		var button = area_buy_buttons[key]
+
+		label.text = "$" + str(price)
+		_position_area_controls(origin, label, button)
+
+		label.show()
+		button.show()
+
+	# محدوده‌هایی که دیگر قابل خرید نیستند پنهان می‌شوند.
+	for key in area_price_labels.keys():
+		if not active_keys.has(key):
+			area_price_labels[key].hide()
+			area_buy_buttons[key].hide()
+
+
+func _area_key(origin):
+	return str(int(origin.x)) + "_" + str(int(origin.y))
+
+
+func _create_area_controls(origin, key):
+	var price_label = Label.new()
+	price_label.name = "LandPrice_" + key
+	price_label.text = "$0"
+	price_label.align = Label.ALIGN_CENTER
+	price_label.valign = Label.VALIGN_CENTER
+	price_label.rect_size = Vector2(100, 30)
+	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	price_label.add_color_override(
+		"font_color",
+		Color(1.0, 0.95, 0.45, 1.0)
+	)
+
+	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
+	if ResourceLoader.exists(font_path):
+		var font = DynamicFont.new()
+		font.font_data = load(font_path)
+		font.size = 18
+		price_label.add_font_override("font", font)
+
+	ui.add_child(price_label)
+	price_label.set_as_toplevel(true)
+
+	var buy_button = Button.new()
+	buy_button.name = "BuyArea_" + key
+	buy_button.text = "Buy"
+	buy_button.focus_mode = Control.FOCUS_NONE
+	buy_button.rect_min_size = Vector2(76, 32)
+	buy_button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	ui.add_child(buy_button)
+	buy_button.set_as_toplevel(true)
+
+	buy_button.connect(
+		"pressed",
+		world.land_purchase_controller,
+		"request_area_purchase",
+		[origin]
+	)
+
+	area_price_labels[key] = price_label
+	area_buy_buttons[key] = buy_button
+
+
+func _position_area_controls(origin, price_label, buy_button):
+	# مرکز محدودهٔ 2x2 در مختصات نقشه.
+	var map_center = Vector2(600, 130)
+	var area_center = world.grid_to_screen(
+		origin + Vector2(0.5, 0.5),
+		map_center
+	)
+
+	# تبدیل مختصات نقشه به مختصات قابل نمایش در UI.
+	var screen_position = world.get_global_transform_with_canvas().xform(
+		area_center
+	)
+
+	price_label.rect_position = screen_position + Vector2(-50, -38)
+	buy_button.rect_position = screen_position + Vector2(-38, -6)
