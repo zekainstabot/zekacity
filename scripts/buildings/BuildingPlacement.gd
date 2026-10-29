@@ -3,7 +3,8 @@ extends Reference
 
 # ZekaCity - BuildingPlacement.gd
 # Godot 3.6
-# بررسی مستقل امکان ساخت ساختمان‌های چندخانه‌ای
+# بررسی امکان ساخت ساختمان
+# دسترسی به جاده مانع ساخت ساختمان نمی‌شود.
 
 
 func can_place_building(

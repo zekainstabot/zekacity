@@ -12,6 +12,11 @@ func handle_input(event, world):
 
 	var mouse_pos = world.get_local_mouse_position()
 
+	# Road removal mode has priority over all other interactions.
+	if world.road_removal_mode:
+		_handle_road_removal_click(world)
+		return
+
 	if world.moving_building_index >= 0:
 		_handle_building_move(mouse_pos, world)
 		return
@@ -268,3 +273,22 @@ func _handle_building_placement(mouse_pos, world):
 	world.selected_x = int(selected_tile.x)
 	world.selected_y = int(selected_tile.y)
 	world._place_building(world.selected_building_for_placement)
+	
+func _handle_road_removal_click(world):
+	var road_system = world.get_node_or_null("../RoadSystem")
+
+	if road_system == null:
+		push_error("RoadSystem NOT FOUND")
+		return
+
+	var mouse_pos = road_system.get_local_mouse_position()
+	var selected_road = road_system.get_road_at_position(mouse_pos)
+
+	if selected_road == null:
+		print("No road selected. Click a highlighted road.")
+		return
+
+	world.select_road_for_removal(
+		selected_road["grid"],
+		selected_road["direction"]
+	)

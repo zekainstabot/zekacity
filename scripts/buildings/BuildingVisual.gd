@@ -198,6 +198,41 @@ func _draw():
 			0.0,
 			Vector2.ONE
 		)
+		if building_id in [
+			"small_house",
+			"normal_house",
+			"low_apartment",
+			"high_apartment",
+			"residential_tower"
+		]:
+			if not world._building_has_road_access(
+				building_id,
+				grid_pos
+			):
+				var marker_position = Vector2(
+					0,
+					-target_size.y * 0.75
+				)
+
+				draw_circle(
+					marker_position,
+					11.0,
+					Color(0.9, 0.12, 0.12, 1)
+				)
+
+				draw_line(
+					marker_position + Vector2(0, -5),
+					marker_position + Vector2(0, 2),
+					Color(1, 1, 1, 1),
+					2.5,
+					true
+				)
+
+				draw_circle(
+					marker_position + Vector2(0, 6),
+					1.5,
+					Color(1, 1, 1, 1)
+				)
 
 		return
 
@@ -207,3 +242,5 @@ func _draw():
 			building_id,
 			Vector2.ZERO
 		)
+func refresh_road_warning():
+	update()

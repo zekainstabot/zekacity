@@ -48,6 +48,7 @@ const BUILDING_ICONS = {
 	"road": "Road",
 	"road_horizontal": "Horizontal Road",
 	"road_vertical": "Vertical Road",
+	"remove_road": "Remove Road",
 	"small_house": "House",
 	"normal_house": "House",
 	"low_apartment": "Apartments",
@@ -144,8 +145,7 @@ func _load_buildings():
 	for building_id in ids:
 		var id = str(building_id)
 
-		# Road entries are added below with their own directions.
-		if id == "road" or id == "road_horizontal" or id == "road_vertical":
+		if id == "road" or id == "road_horizontal" or id == "road_vertical" or id == "remove_road":
 			continue
 
 		var data = all_data[building_id]
@@ -171,7 +171,6 @@ func _load_buildings():
 
 		buildings.append(item)
 
-	# Add mines even if they are missing from BuildingData.
 	var mine_definitions = [
 		{
 			"id": "stone_mine",
@@ -202,7 +201,6 @@ func _load_buildings():
 		if not already_exists:
 			buildings.append(mine)
 
-	# Add both road directions.
 	var road_definitions = [
 		{
 			"id": "road_horizontal",
@@ -219,6 +217,14 @@ func _load_buildings():
 			"cost": 0,
 			"population_required": 0,
 			"icon": "Vertical Road"
+		},
+		{
+			"id": "remove_road",
+			"name": "Remove Road",
+			"category": "Roads",
+			"cost": 0,
+			"population_required": 0,
+			"icon": "Remove Road"
 		}
 	]
 
@@ -238,6 +244,7 @@ func _load_buildings():
 	print("IRON MINE AVAILABLE: ", true)
 	print("HORIZONTAL ROAD AVAILABLE: ", true)
 	print("VERTICAL ROAD AVAILABLE: ", true)
+	print("REMOVE ROAD AVAILABLE: ", true)
 
 
 func _make_font(font_size):
@@ -535,30 +542,48 @@ func _refresh_building_cards():
 		image_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(image_holder)
 
-		var texture = _get_building_texture(building_id)
-
-		if texture != null:
-			var image_rect = TextureRect.new()
-			image_rect.name = "BuildingImage"
-			image_rect.texture = texture
-			image_rect.rect_min_size = IMAGE_SIZE
-			image_rect.expand = true
-			image_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			image_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			image_holder.add_child(image_rect)
-		else:
-			var fallback_label = Label.new()
-			fallback_label.name = "BuildingImageFallback"
-			fallback_label.text = str(
-				building.get("icon", "Building")
+		# Remove Road: red cross instead of an image.
+		if building_id == "remove_road":
+			var remove_icon = Label.new()
+			remove_icon.name = "RemoveRoadIcon"
+			remove_icon.text = "✖"
+			remove_icon.align = Label.ALIGN_CENTER
+			remove_icon.valign = Label.VALIGN_CENTER
+			remove_icon.rect_min_size = IMAGE_SIZE
+			remove_icon.add_color_override(
+				"font_color",
+				Color(1.0, 0.05, 0.05, 1.0)
 			)
-			fallback_label.align = Label.ALIGN_CENTER
-			fallback_label.valign = Label.VALIGN_CENTER
-			fallback_label.autowrap = true
-			fallback_label.rect_min_size = IMAGE_SIZE
-			fallback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_apply_font(fallback_label, 15)
-			image_holder.add_child(fallback_label)
+			remove_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_apply_font(remove_icon, 64)
+			image_holder.add_child(remove_icon)
+
+		else:
+			var texture = _get_building_texture(building_id)
+
+			if texture != null:
+				var image_rect = TextureRect.new()
+				image_rect.name = "BuildingImage"
+				image_rect.texture = texture
+				image_rect.rect_min_size = IMAGE_SIZE
+				image_rect.expand = true
+				image_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				image_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				image_holder.add_child(image_rect)
+
+			else:
+				var fallback_label = Label.new()
+				fallback_label.name = "BuildingImageFallback"
+				fallback_label.text = str(
+					building.get("icon", "Building")
+				)
+				fallback_label.align = Label.ALIGN_CENTER
+				fallback_label.valign = Label.VALIGN_CENTER
+				fallback_label.autowrap = true
+				fallback_label.rect_min_size = IMAGE_SIZE
+				fallback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_apply_font(fallback_label, 15)
+				image_holder.add_child(fallback_label)
 
 		var name_label = Label.new()
 		name_label.name = "BuildingName"
@@ -575,9 +600,14 @@ func _refresh_building_cards():
 
 		var cost_label = Label.new()
 		cost_label.name = "BuildingCost"
-		cost_label.text = "Cost: " + str(
-			building.get("cost", 0)
-		)
+
+		if building_id == "remove_road":
+			cost_label.text = "Free"
+		else:
+			cost_label.text = "Cost: " + str(
+				building.get("cost", 0)
+			)
+
 		cost_label.align = Label.ALIGN_CENTER
 		cost_label.rect_min_size = Vector2(0, 20)
 		cost_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -590,9 +620,14 @@ func _refresh_building_cards():
 
 		var population_label = Label.new()
 		population_label.name = "RequiredPopulation"
-		population_label.text = "Required Pop: " + str(
-			required_population
-		)
+
+		if building_id == "remove_road":
+			population_label.text = ""
+		else:
+			population_label.text = "Required Pop: " + str(
+				required_population
+			)
+
 		population_label.align = Label.ALIGN_CENTER
 		population_label.autowrap = true
 		population_label.rect_min_size = Vector2(0, 22)
@@ -606,11 +641,16 @@ func _refresh_building_cards():
 
 		var size_label = Label.new()
 		size_label.name = "BuildingSize"
-		size_label.text = (
-			str(int(footprint.x))
-			+ " x "
-			+ str(int(footprint.y))
-		)
+
+		if building_id == "remove_road":
+			size_label.text = ""
+		else:
+			size_label.text = (
+				str(int(footprint.x))
+				+ " x "
+				+ str(int(footprint.y))
+			)
+
 		size_label.align = Label.ALIGN_CENTER
 		size_label.rect_min_size = Vector2(0, 20)
 		size_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -683,14 +723,48 @@ func _on_cancel_pressed():
 	hide()
 
 
+func _find_world_node():
+	var node = get_parent()
+
+	while node != null:
+		if node.has_method("begin_road_removal"):
+			return node
+
+		node = node.get_parent()
+
+	return null
+
+
 func _on_build_pressed():
 	if selected_building_id == null:
 		info_label.text = "Select a building first"
 		return
 
-	var building_id = selected_building_id
+	var building_id = str(selected_building_id)
+
 	touch_scroll_target = null
 	touch_scroll_index = -1
+
+	if building_id == "remove_road":
+		var world = _find_world_node()
+
+		if world == null:
+			push_error(
+				"ConstructionUI: World node with begin_road_removal() not found"
+			)
+			return
+
+		world.selected_building_for_placement = ""
+		world.road_placement_direction = -1
+
+		if world.has_meta("mine_placement_resource"):
+			world.remove_meta("mine_placement_resource")
+
+		world.begin_road_removal()
+
+		selected_building_id = null
+		hide()
+		return
 
 	emit_signal("building_confirmed", building_id)
 	hide()

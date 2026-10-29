@@ -161,6 +161,8 @@ func on_category_selected(id):
 	if id == 101:
 		submenu_menu.add_item("Horizontal Road", 201)
 		submenu_menu.add_item("Vertical Road", 202)
+		submenu_menu.add_separator()
+		submenu_menu.add_item("Remove Road", 203)
 		_show_submenu()
 		return
 
@@ -198,8 +200,9 @@ func _show_submenu():
 	if submenu_menu == null or world == null:
 		return
 
-	submenu_menu.rect_min_size = Vector2(320, 100)
-	submenu_menu.rect_size = Vector2(320, 100)
+	submenu_menu.rect_min_size = Vector2(320, 0)
+	submenu_menu.rect_size = Vector2.ZERO
+
 	submenu_menu.add_constant_override("vseparation", 18)
 	submenu_menu.add_constant_override("hseparation", 12)
 
@@ -212,16 +215,29 @@ func _on_SubmenuMenu_id_pressed(id):
 		return
 
 	if id == 201:
+		_cancel_road_removal_if_active()
 		world.selected_building_for_placement = ""
 		world._place_road(0)
 		return
 
 	if id == 202:
+		_cancel_road_removal_if_active()
 		world.selected_building_for_placement = ""
 		world._place_road(1)
 		return
 
+	if id == 203:
+		world.selected_building_for_placement = ""
+		world.road_placement_direction = -1
+
+		if world.has_meta("mine_placement_resource"):
+			world.remove_meta("mine_placement_resource")
+
+		world.begin_road_removal()
+		return
+
 	if id == 301:
+		_cancel_road_removal_if_active()
 		world.selected_building_for_placement = ""
 		world.road_placement_direction = -1
 		world.set_meta("mine_placement_resource", "stone")
@@ -229,6 +245,7 @@ func _on_SubmenuMenu_id_pressed(id):
 		return
 
 	if id == 302:
+		_cancel_road_removal_if_active()
 		world.selected_building_for_placement = ""
 		world.road_placement_direction = -1
 		world.set_meta("mine_placement_resource", "iron_ore")
@@ -241,6 +258,8 @@ func _on_SubmenuMenu_id_pressed(id):
 			+ str(id)
 		)
 		return
+
+	_cancel_road_removal_if_active()
 
 	var building_id = menu_building_ids[id]
 
@@ -255,3 +274,8 @@ func _on_SubmenuMenu_id_pressed(id):
 		building_id,
 		" | Click a valid tile to place it."
 	)
+
+
+func _cancel_road_removal_if_active():
+	if world != null and world.has_method("cancel_road_removal"):
+		world.cancel_road_removal()
