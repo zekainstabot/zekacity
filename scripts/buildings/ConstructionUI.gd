@@ -19,6 +19,8 @@ const BUILDING_IMAGE_PATHS = {
 	"normal_house": "res://BuildingImages/normal_house.png",
 	"low_apartment": "res://BuildingImages/low_apartment.png",
 	"high_apartment": "res://BuildingImages/high_apartment.png",
+	"road_horizontal": "res://BuildingImages/road_straight.png",
+	"road_vertical": "res://BuildingImages/road_vertical.png",
 	"road": "res://BuildingImages/road_straight.png",
 	"residential_tower": "res://BuildingImages/residential_tower.png",
 	"grocery_store": "res://BuildingImages/grocery_store.png",
@@ -44,6 +46,8 @@ const BUILDING_IMAGE_PATHS = {
 
 const BUILDING_ICONS = {
 	"road": "Road",
+	"road_horizontal": "Horizontal Road",
+	"road_vertical": "Vertical Road",
 	"small_house": "House",
 	"normal_house": "House",
 	"low_apartment": "Apartments",
@@ -73,10 +77,10 @@ const BUILDING_ICONS = {
 	"playground": "Playground",
 	"sports_center": "Sports",
 	"cultural_center": "Culture",
-	"small_warehouse": "Warehouse",
-	"medium_warehouse": "Warehouse",
-	"large_warehouse": "Warehouse",
-	"huge_warehouse": "Warehouse"
+	"small_warehouse": "Small Warehouse",
+	"medium_warehouse": "Medium Warehouse",
+	"large_warehouse": "Large Warehouse",
+	"huge_warehouse": "Huge Warehouse"
 }
 
 var selected_category = "All"
@@ -139,6 +143,11 @@ func _load_buildings():
 
 	for building_id in ids:
 		var id = str(building_id)
+
+		# Road entries are added below with their own directions.
+		if id == "road" or id == "road_horizontal" or id == "road_vertical":
+			continue
+
 		var data = all_data[building_id]
 
 		if typeof(data) != TYPE_DICTIONARY:
@@ -193,27 +202,43 @@ func _load_buildings():
 		if not already_exists:
 			buildings.append(mine)
 
-	# Add road if missing.
-	var road_exists = false
-
-	for building in buildings:
-		if str(building.get("id", "")) == "road":
-			road_exists = true
-			break
-
-	if not road_exists:
-		buildings.append({
-			"id": "road",
-			"name": "Road",
+	# Add both road directions.
+	var road_definitions = [
+		{
+			"id": "road_horizontal",
+			"name": "Horizontal Road",
 			"category": "Roads",
 			"cost": 0,
 			"population_required": 0,
-			"icon": "Road"
-		})
+			"icon": "Horizontal Road"
+		},
+		{
+			"id": "road_vertical",
+			"name": "Vertical Road",
+			"category": "Roads",
+			"cost": 0,
+			"population_required": 0,
+			"icon": "Vertical Road"
+		}
+	]
+
+	for road_definition in road_definitions:
+		var road_exists = false
+
+		for building in buildings:
+			if str(building.get("id", "")) == road_definition["id"]:
+				road_exists = true
+				break
+
+		if not road_exists:
+			buildings.append(road_definition)
 
 	print("CONSTRUCTION BUILDINGS LOADED: ", buildings.size())
 	print("STONE MINE AVAILABLE: ", true)
 	print("IRON MINE AVAILABLE: ", true)
+	print("HORIZONTAL ROAD AVAILABLE: ", true)
+	print("VERTICAL ROAD AVAILABLE: ", true)
+
 
 func _make_font(font_size):
 	if font_cache.has(font_size):

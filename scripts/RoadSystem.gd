@@ -1,3 +1,4 @@
+
 extends Node2D
 
 const ROAD_HORIZONTAL_PATH = "res://BuildingImages/road_straight.png"
@@ -12,26 +13,20 @@ var roads = []
 var road_horizontal_texture = null
 var road_vertical_texture = null
 
-# اندازه نمایش هر تصویر جاده
-var road_texture_size = Vector2(50, 20)
+# اندازه تصویر جاده در محدوده خانه زمین
+var road_texture_size = Vector2(55, 20)
 
 
 func _ready():
 	if ResourceLoader.exists(ROAD_HORIZONTAL_PATH):
 		road_horizontal_texture = load(ROAD_HORIZONTAL_PATH)
 	else:
-		push_error(
-			"Horizontal road texture not found: "
-			+ ROAD_HORIZONTAL_PATH
-		)
+		push_error("Horizontal road texture not found: " + ROAD_HORIZONTAL_PATH)
 
 	if ResourceLoader.exists(ROAD_VERTICAL_PATH):
 		road_vertical_texture = load(ROAD_VERTICAL_PATH)
 	else:
-		push_error(
-			"Vertical road texture not found: "
-			+ ROAD_VERTICAL_PATH
-		)
+		push_error("Vertical road texture not found: " + ROAD_VERTICAL_PATH)
 
 	update()
 
@@ -46,11 +41,7 @@ func _draw():
 			continue
 
 		var screen_pos = _grid_to_screen(grid_pos)
-
-		_draw_road_texture(
-			texture,
-			screen_pos
-		)
+		_draw_road_texture(texture, screen_pos)
 
 
 func _get_road_texture(direction):
@@ -63,29 +54,27 @@ func _get_road_texture(direction):
 	return null
 
 
-func _draw_road_texture(texture, pos):
+func _draw_road_texture(texture, center):
 	if texture == null:
 		return
 
-	var texture_size = texture.get_size()
+	var source_size = texture.get_size()
 
-	if texture_size.x <= 0 or texture_size.y <= 0:
+	if source_size.x <= 0 or source_size.y <= 0:
 		return
 
+	var target_size = road_texture_size
+
 	var scale_factor = Vector2(
-		road_texture_size.x / texture_size.x,
-		road_texture_size.y / texture_size.y
+		target_size.x / source_size.x,
+		target_size.y / source_size.y
 	)
 
-	draw_set_transform(
-		pos,
-		0.0,
-		scale_factor
-	)
+	draw_set_transform(center, 0.0, scale_factor)
 
 	draw_texture(
 		texture,
-		-texture_size / 2.0,
+		-source_size / 2.0,
 		Color(1, 1, 1, 1)
 	)
 
@@ -108,12 +97,12 @@ func add_road(grid_pos, direction):
 		push_error("Invalid road direction: " + str(direction))
 		return false
 
-	# اجازه نده یک جاده با همان جهت دوباره ساخته شود.
-	# یک خانه می‌تواند هر دو جهت جاده را داشته باشد.
+	# اجازه ساخت دوباره همان جهت در همان خانه داده نمی‌شود.
+	# یک خانه می‌تواند جاده افقی و عمودی داشته باشد.
 	for road in roads:
 		if (
-			road["grid"] == grid_pos
-			and int(road["direction"]) == direction
+			road.get("grid", Vector2.ZERO) == grid_pos
+			and int(road.get("direction", -1)) == direction
 		):
 			return false
 
@@ -138,7 +127,7 @@ func remove_road(grid_pos):
 	var removed = false
 
 	for i in range(roads.size() - 1, -1, -1):
-		if roads[i]["grid"] == grid_pos:
+		if roads[i].get("grid", Vector2.ZERO) == grid_pos:
 			roads.remove(i)
 			removed = true
 
@@ -150,7 +139,7 @@ func remove_road(grid_pos):
 
 func has_road(grid_pos):
 	for road in roads:
-		if road["grid"] == grid_pos:
+		if road.get("grid", Vector2.ZERO) == grid_pos:
 			return true
 
 	return false
@@ -159,8 +148,8 @@ func has_road(grid_pos):
 func has_road_direction(grid_pos, direction):
 	for road in roads:
 		if (
-			road["grid"] == grid_pos
-			and int(road["direction"]) == direction
+			road.get("grid", Vector2.ZERO) == grid_pos
+			and int(road.get("direction", -1)) == direction
 		):
 			return true
 

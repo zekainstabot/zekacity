@@ -5,6 +5,7 @@ extends Node2D
 # Godot 3.6
 
 const CITIZEN_VISUAL_PATH = "res://scripts/citizens/CitizenVisual.gd"
+const SHOP_INTERVAL = 30.0
 
 const JOB_CAPACITY = {
 	"grocery_store": 3,
@@ -21,7 +22,6 @@ var citizens = []
 var visuals = {}
 var next_citizen_id = 1
 var rng = RandomNumberGenerator.new()
-const SHOP_INTERVAL = 30.0
 var shopping_timer = 0.0
 
 
@@ -34,8 +34,8 @@ func initialize(world_node):
 func _process(delta):
 	if world == null:
 		return
-		
-		shopping_timer += delta
+
+	shopping_timer += delta
 
 	if shopping_timer >= SHOP_INTERVAL:
 		shopping_timer = 0.0
@@ -66,16 +66,13 @@ func _process(delta):
 			continue
 
 		citizen["move_progress"] += delta
-
 		var duration = max(0.1, float(citizen["move_duration"]))
 
 		if citizen["move_progress"] >= duration:
-			var previous_grid = citizen["grid_pos"]
-
-			citizen["grid_pos"] = citizen["target_grid"]
+			var previous_grid = current
+			citizen["grid_pos"] = target
 			citizen["previous_grid"] = previous_grid
 			citizen["move_progress"] = 0.0
-
 			_choose_next_target(citizen)
 
 		_update_citizen_visual(citizen)
@@ -90,6 +87,8 @@ func sync_residents():
 		return
 
 	var homes = {}
+	var connected_roads = _get_city_hall_road_network()
+	var city_hall_exists = _city_hall_exists()
 
 	for building in world.placed_buildings:
 		var building_id = str(building.get("id", ""))
@@ -98,6 +97,21 @@ func sync_residents():
 			continue
 
 		var grid = building.get("grid", Vector2.ZERO)
+
+		if city_hall_exists:
+			if not _home_touches_connected_road(
+				grid,
+				building_id,
+				connected_roads
+			):
+				continue
+		else:
+			if not (
+				building_id == "small_house"
+				and grid == Vector2.ZERO
+			):
+				continue
+
 		var key = _home_key(building_id, grid)
 
 		homes[key] = {
@@ -133,8 +147,119 @@ func sync_residents():
 			updated.append(_create_citizen(key, home["grid"]))
 
 	citizens = updated
+
 	_rebuild_visuals()
 	_sync_jobs()
+
+	if world.has_method("_update_population_label"):
+		world._update_population_label()
+
+
+func _city_hall_exists():
+	for building in world.placed_buildings:
+		if str(building.get("id", "")) == "city_hall":
+			return true
+
+	return false
+
+
+func _home_touches_connected_road(home_grid, building_id, connected_roads):
+	var footprint = _get_building_footprint(building_id)
+
+	for x in range(int(footprint.x)):
+		for y in range(int(footprint.y)):
+			var tile = home_grid + Vector2(x, y)
+
+			var checks = [
+				{"grid": tile + Vector2(1, 0), "axis": 0},
+				{"grid": tile + Vector2(-1, 0), "axis": 0},
+				{"grid": tile + Vector2(0, 1), "axis": 1},
+				{"grid": tile + Vector2(0, -1), "axis": 1}
+			]
+
+			for check in checks:
+				var road_grid = check["grid"]
+				var axis = int(check["axis"])
+
+				if not connected_roads.has(road_grid):
+					continue
+
+				if _has_road_axis(road_grid, axis):
+					return true
+
+	return false
+
+
+func _get_city_hall_road_network():
+	var result = []
+	var road_system = _get_road_system()
+
+	if road_system == null:
+		return result
+
+	var pending = []
+
+	# Seed roads along the entire City Hall footprint.
+	for building in world.placed_buildings:
+		if str(building.get("id", "")) != "city_hall":
+			continue
+
+		var hall_grid = building.get("grid", Vector2.ZERO)
+		var footprint = _get_building_footprint("city_hall")
+
+		for x in range(int(footprint.x)):
+			for y in range(int(footprint.y)):
+				var tile = hall_grid + Vector2(x, y)
+
+				var checks = [
+					{"grid": tile + Vector2(1, 0), "axis": 0},
+					{"grid": tile + Vector2(-1, 0), "axis": 0},
+					{"grid": tile + Vector2(0, 1), "axis": 1},
+					{"grid": tile + Vector2(0, -1), "axis": 1}
+				]
+
+				for check in checks:
+					var road_grid = check["grid"]
+					var axis = int(check["axis"])
+
+					if not _has_road_axis(road_grid, axis):
+						continue
+
+					if not pending.has(road_grid):
+						pending.append(road_grid)
+
+	# Breadth-first traversal of connected roads.
+	while not pending.empty():
+		var current = pending.pop_front()
+
+		if result.has(current):
+			continue
+
+		result.append(current)
+
+		var neighbors = [
+			{"grid": current + Vector2(1, 0), "axis": 0},
+			{"grid": current + Vector2(-1, 0), "axis": 0},
+			{"grid": current + Vector2(0, 1), "axis": 1},
+			{"grid": current + Vector2(0, -1), "axis": 1}
+		]
+
+		for neighbor in neighbors:
+			var next_grid = neighbor["grid"]
+			var axis = int(neighbor["axis"])
+
+			if result.has(next_grid) or pending.has(next_grid):
+				continue
+
+			if not _has_road_axis(current, axis):
+				continue
+
+			if not _has_road_axis(next_grid, axis):
+				continue
+
+			pending.append(next_grid)
+
+	return result
 
 
 func _count_home_residents(list, home_key):
@@ -151,7 +276,7 @@ func _create_citizen(home_key, home_grid):
 	var citizen_id = "citizen_" + str(next_citizen_id)
 	next_citizen_id += 1
 
-	var start_grid = _find_nearest_road(home_grid)
+	var start_grid = _find_nearest_connected_road(home_grid)
 
 	var citizen = {
 		"id": citizen_id,
@@ -163,11 +288,7 @@ func _create_citizen(home_key, home_grid):
 		"move_progress": 0.0,
 		"move_duration": 1.0,
 		"skin_seed": rng.randi_range(1, 1000000),
-
-		# Personal finances
 		"wallet": 100,
-
-		# Employment
 		"job_id": "",
 		"work_grid": home_grid
 	}
@@ -265,34 +386,31 @@ func _has_road_axis(grid, axis):
 func _has_road_connection(from_grid, to_grid):
 	var difference = to_grid - from_grid
 
-	if difference.y == 0 and abs(difference.x) == 1:
+	if abs(difference.x) + abs(difference.y) != 1:
+		return false
+
+	if difference.y == 0:
 		return (
 			_has_road_axis(from_grid, 0)
 			and _has_road_axis(to_grid, 0)
 		)
 
-	if difference.x == 0 and abs(difference.y) == 1:
-		return (
-			_has_road_axis(from_grid, 1)
-			and _has_road_axis(to_grid, 1)
-		)
-
-	return false
-
-
-func _find_nearest_road(from_grid):
-	var road_tiles = _get_road_tiles()
-
-	if road_tiles.empty():
-		return from_grid
-
-	var nearest = road_tiles[0]
-	var nearest_distance = (
-		abs(from_grid.x - nearest.x)
-		+ abs(from_grid.y - nearest.y)
+	return (
+		_has_road_axis(from_grid, 1)
+		and _has_road_axis(to_grid, 1)
 	)
 
-	for road_grid in road_tiles:
+
+func _find_nearest_connected_road(from_grid):
+	var connected_roads = _get_city_hall_road_network()
+
+	if connected_roads.empty():
+		return from_grid
+
+	var nearest = from_grid
+	var nearest_distance = 999999
+
+	for road_grid in connected_roads:
 		var distance = (
 			abs(from_grid.x - road_grid.x)
 			+ abs(from_grid.y - road_grid.y)
@@ -305,6 +423,13 @@ func _find_nearest_road(from_grid):
 	return nearest
 
 
+func _get_building_footprint(building_id):
+	if world != null and world.building_footprints != null:
+		return world.building_footprints.get_footprint(building_id)
+
+	return Vector2(1, 1)
+
+
 # --------------------------------------------------
 # ROAD-BASED MOVEMENT
 # --------------------------------------------------
@@ -313,6 +438,10 @@ func _choose_next_target(citizen):
 	var current = citizen.get("grid_pos", Vector2.ZERO)
 	var previous = citizen.get("previous_grid", current)
 	var road_tiles = _get_road_tiles()
+	var connected_roads = _get_city_hall_road_network()
+
+	if _city_hall_exists():
+		road_tiles = connected_roads
 
 	if road_tiles.empty():
 		citizen["target_grid"] = current
@@ -321,7 +450,7 @@ func _choose_next_target(citizen):
 		return
 
 	if not road_tiles.has(current):
-		current = _find_nearest_road(current)
+		current = _find_nearest_connected_road(current)
 		citizen["grid_pos"] = current
 		citizen["target_grid"] = current
 		citizen["previous_grid"] = current
@@ -403,7 +532,6 @@ func _update_citizen_visual(citizen):
 	var visual = visuals[citizen_id]
 	var start = citizen["grid_pos"]
 	var target = citizen["target_grid"]
-
 	var duration = max(0.1, float(citizen["move_duration"]))
 
 	var weight = clamp(
@@ -441,7 +569,6 @@ func _rebuild_visuals():
 
 		visual.name = citizen_id
 		add_child(visual)
-
 		visual.setup(int(citizen.get("skin_seed", 0)))
 		visual.scale = Vector2(0.7, 0.7)
 
@@ -460,36 +587,15 @@ func get_save_data():
 		result.append({
 			"id": str(citizen.get("id", "")),
 			"home_key": str(citizen.get("home_key", "")),
-			"home_grid": _vector_to_data(
-				citizen.get("home_grid", Vector2.ZERO)
-			),
-			"grid_pos": _vector_to_data(
-				citizen.get("grid_pos", Vector2.ZERO)
-			),
-			"target_grid": _vector_to_data(
-				citizen.get("target_grid", Vector2.ZERO)
-			),
-			"previous_grid": _vector_to_data(
-				citizen.get("previous_grid", Vector2.ZERO)
-			),
-			"move_progress": float(
-				citizen.get("move_progress", 0.0)
-			),
-			"move_duration": float(
-				citizen.get("move_duration", 1.0)
-			),
+			"home_grid": _vector_to_data(citizen.get("home_grid", Vector2.ZERO)),
+			"grid_pos": _vector_to_data(citizen.get("grid_pos", Vector2.ZERO)),
+			"target_grid": _vector_to_data(citizen.get("target_grid", Vector2.ZERO)),
+			"previous_grid": _vector_to_data(citizen.get("previous_grid", Vector2.ZERO)),
+			"move_progress": float(citizen.get("move_progress", 0.0)),
+			"move_duration": float(citizen.get("move_duration", 1.0)),
 			"skin_seed": int(citizen.get("skin_seed", 0)),
-
-			# Employment
 			"job_id": str(citizen.get("job_id", "")),
-			"work_grid": _vector_to_data(
-				citizen.get(
-					"work_grid",
-					citizen.get("home_grid", Vector2.ZERO)
-				)
-			),
-
-			# Wallet
+			"work_grid": _vector_to_data(citizen.get("work_grid", citizen.get("home_grid", Vector2.ZERO))),
 			"wallet": int(citizen.get("wallet", 0))
 		})
 
@@ -509,50 +615,24 @@ func load_data(saved_citizens):
 		if citizen_id == "":
 			continue
 
-		var citizen_number = int(
-			citizen_id.replace("citizen_", "")
-		)
+		var citizen_number = int(citizen_id.replace("citizen_", ""))
+		next_citizen_id = max(next_citizen_id, citizen_number + 1)
 
-		next_citizen_id = max(
-			next_citizen_id,
-			citizen_number + 1
-		)
-
-		var home_grid = _data_to_vector(
-			saved.get("home_grid", {})
-		)
-
-		var grid_pos = _data_to_vector(
-			saved.get("grid_pos", {})
-		)
+		var home_grid = _data_to_vector(saved.get("home_grid", {}))
+		var grid_pos = _data_to_vector(saved.get("grid_pos", {}))
 
 		citizens.append({
 			"id": citizen_id,
 			"home_key": str(saved.get("home_key", "")),
 			"home_grid": home_grid,
 			"grid_pos": grid_pos,
-			"target_grid": _data_to_vector(
-				saved.get("target_grid", saved.get("grid_pos", {}))
-			),
-			"previous_grid": _data_to_vector(
-				saved.get("previous_grid", saved.get("grid_pos", {}))
-			),
-			"move_progress": float(
-				saved.get("move_progress", 0.0)
-			),
-			"move_duration": max(
-				0.1,
-				float(saved.get("move_duration", 1.0))
-			),
+			"target_grid": _data_to_vector(saved.get("target_grid", saved.get("grid_pos", {}))),
+			"previous_grid": _data_to_vector(saved.get("previous_grid", saved.get("grid_pos", {}))),
+			"move_progress": float(saved.get("move_progress", 0.0)),
+			"move_duration": max(0.1, float(saved.get("move_duration", 1.0))),
 			"skin_seed": int(saved.get("skin_seed", 0)),
-
-			# Employment
 			"job_id": str(saved.get("job_id", "")),
-			"work_grid": _data_to_vector(
-				saved.get("work_grid", saved.get("home_grid", {}))
-			),
-
-			# Wallet
+			"work_grid": _data_to_vector(saved.get("work_grid", saved.get("home_grid", {}))),
 			"wallet": max(100, int(saved.get("wallet", 0)))
 		})
 
@@ -586,7 +666,6 @@ func _sync_jobs():
 
 	var available_jobs = []
 
-	# Create job slots
 	for building in world.placed_buildings:
 		var building_id = str(building.get("id", ""))
 		var capacity = int(JOB_CAPACITY.get(building_id, 0))
@@ -600,23 +679,15 @@ func _sync_jobs():
 				"occupied": false
 			})
 
-	# Preserve valid existing jobs
 	for citizen in citizens:
 		if not citizen.has("job_id"):
 			citizen["job_id"] = ""
 
 		if not citizen.has("work_grid"):
-			citizen["work_grid"] = citizen.get(
-				"home_grid",
-				Vector2.ZERO
-			)
+			citizen["work_grid"] = citizen.get("home_grid", Vector2.ZERO)
 
 		var old_job_id = str(citizen.get("job_id", ""))
-		var old_work_grid = citizen.get(
-			"work_grid",
-			citizen.get("home_grid", Vector2.ZERO)
-		)
-
+		var old_work_grid = citizen.get("work_grid", citizen.get("home_grid", Vector2.ZERO))
 		var job_preserved = false
 
 		if old_job_id != "":
@@ -636,12 +707,8 @@ func _sync_jobs():
 
 		if not job_preserved:
 			citizen["job_id"] = ""
-			citizen["work_grid"] = citizen.get(
-				"home_grid",
-				Vector2.ZERO
-			)
+			citizen["work_grid"] = citizen.get("home_grid", Vector2.ZERO)
 
-	# Assign available jobs to unemployed citizens
 	for citizen in citizens:
 		if str(citizen.get("job_id", "")) != "":
 			continue
@@ -655,7 +722,6 @@ func _sync_jobs():
 			citizen["work_grid"] = job["grid"]
 			break
 
-	# Employment statistics
 	var employed = 0
 
 	for citizen in citizens:
@@ -684,6 +750,7 @@ func get_employment_stats():
 		"employed": employed,
 		"unemployed": citizens.size() - employed
 	}
+
 
 # --------------------------------------------------
 # REAL CITIZEN SHOPPING
@@ -717,9 +784,7 @@ func _process_citizen_shopping():
 			continue
 
 		var products = ["stone", "iron_ore"]
-		var product_index = rng.randi_range(0, products.size() - 1)
-		var product_id = products[product_index]
-
+		var product_id = products[rng.randi_range(0, products.size() - 1)]
 		var price = market.get_sell_price(product_id)
 
 		if wallet < price:
@@ -728,8 +793,7 @@ func _process_citizen_shopping():
 		if market.get_stock(product_id) <= 0:
 			continue
 
-		var market_index = rng.randi_range(0, markets.size() - 1)
-		var market_building = markets[market_index]
+		var market_building = markets[rng.randi_range(0, markets.size() - 1)]
 
 		var result = market.sell_to_customer(
 			product_id,
