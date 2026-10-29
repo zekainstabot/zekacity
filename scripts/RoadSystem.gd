@@ -13,8 +13,11 @@ var roads = []
 var road_horizontal_texture = null
 var road_vertical_texture = null
 
-# اندازه تصویر جاده در محدوده خانه زمین
-var road_texture_size = Vector2(55, 20)
+# اندازه تصویر جاده
+var road_texture_size = Vector2(106, 53)
+
+# جابه‌جایی کل تصویر جاده
+var road_offset = Vector2.ZERO
 
 
 func _ready():
@@ -70,7 +73,11 @@ func _draw_road_texture(texture, center):
 		target_size.y / source_size.y
 	)
 
-	draw_set_transform(center, 0.0, scale_factor)
+	draw_set_transform(
+		center + road_offset,
+		0.0,
+		scale_factor
+	)
 
 	draw_texture(
 		texture,
@@ -97,8 +104,6 @@ func add_road(grid_pos, direction):
 		push_error("Invalid road direction: " + str(direction))
 		return false
 
-	# اجازه ساخت دوباره همان جهت در همان خانه داده نمی‌شود.
-	# یک خانه می‌تواند جاده افقی و عمودی داشته باشد.
 	for road in roads:
 		if (
 			road.get("grid", Vector2.ZERO) == grid_pos
@@ -158,4 +163,17 @@ func has_road_direction(grid_pos, direction):
 
 func set_road_width(value):
 	road_texture_size.y = max(1.0, float(value))
+	update()
+
+
+func set_road_size(width, height):
+	road_texture_size = Vector2(
+		max(1.0, float(width)),
+		max(1.0, float(height))
+	)
+	update()
+
+
+func set_road_offset(x, y):
+	road_offset = Vector2(float(x), float(y))
 	update()
