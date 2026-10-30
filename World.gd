@@ -225,7 +225,7 @@ func _ready():
 	population_label.text = "Population: 0"
 
 	population_label.rect_min_size = Vector2(320, 36)
-	population_label.rect_size = Vector2(320, 36)
+	population_label.rect_size = Vector2(280, 36)
 
 	population_label.anchor_left = 0.0
 	population_label.anchor_right = 0.0
@@ -234,7 +234,7 @@ func _ready():
 
 	population_label.rect_position = Vector2(130, 62)
 
-	population_label.align = Label.ALIGN_RIGHT
+	population_label.align = Label.ALIGN_LEFT
 	population_label.valign = Label.VALIGN_CENTER
 
 
@@ -249,7 +249,7 @@ func _ready():
 	if ResourceLoader.exists(font_path):
 		population_font.font_data = load(font_path)
 
-	population_font.size = 20
+	population_font.size = 32
 	population_label.add_font_override("font", population_font)
 
 	ui.add_child(population_label)

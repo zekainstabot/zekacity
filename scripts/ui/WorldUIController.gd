@@ -48,7 +48,7 @@ func _create_treasury_label():
 	if ResourceLoader.exists(font_path):
 		var money_font = DynamicFont.new()
 		money_font.font_data = load(font_path)
-		money_font.size = 26
+		money_font.size = 40
 		treasury_label.add_font_override("font", money_font)
 
 	treasury_label.add_color_override(
@@ -84,7 +84,7 @@ func _update_treasury_label_layout():
 	treasury_label.anchor_right = 0.0
 	treasury_label.anchor_bottom = 0.0
 
-	treasury_label.rect_size = Vector2(280, 44)
+	treasury_label.rect_size = Vector2(288, 44)
 
 func _create_land_purchase_dialog():
 	land_purchase_dialog = ConfirmationDialog.new()
