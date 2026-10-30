@@ -152,7 +152,6 @@ func _handle_building_move(mouse_pos, world):
 	world.moving_building_index = -1
 	world.moving_building_origin = Vector2(-1, -1)
 	
-	world._refresh_building_visuals()
 	world.update()
 
 	if result["success"]:
@@ -170,7 +169,6 @@ func _select_building(building_index, world):
 	world.building_visibility.set_selected_building(building_index)
 
 	print("SELECTED BUILDING: ", building["id"], " | INDEX: ", building_index)
-	world._refresh_building_visuals()
 	world.update()
 
 	if world.building_action_panel != null:
@@ -243,7 +241,6 @@ func _select_land(mouse_pos, world):
 		if world.buy_land_button != null:
 			world.buy_land_button.visible = false
 
-	world._refresh_building_visuals()
 	world.update()
 
 
