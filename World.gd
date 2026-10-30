@@ -29,7 +29,7 @@ var save_system = preload(
 ).new()
 
 var autosave_elapsed = 0.0
-var autosave_interval = 30.0
+var autosave_interval = 600.0
 
 var business_economy_system = preload(
 	"res://scripts/economy/BusinessEconomySystem.gd"
@@ -1085,11 +1085,15 @@ func _process(delta):
 
 
 func _notification(what):
+	if save_system == null:
+		return
+
 	if what == NOTIFICATION_WM_QUIT_REQUEST:
-		if save_system != null:
-			save_system.save_world(self)
+		save_system.save_world(self)
+		get_tree().quit()
 
-
+	elif what == NOTIFICATION_APP_PAUSED:
+		save_system.save_world(self)
 
 
 func _setup_construction_button():
