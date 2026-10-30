@@ -56,7 +56,7 @@ func _create_treasury_label():
 		Color(1, 1, 0.3, 1)
 	)
 
-	treasury_label.align = Label.ALIGN_RIGHT
+	treasury_label.align = Label.ALIGN_LEFT
 	treasury_label.valign = Label.VALIGN_CENTER
 	treasury_label.autowrap = false
 	treasury_label.clip_text = true
@@ -73,26 +73,18 @@ func _create_treasury_label():
 	_update_treasury_label_layout()
 	treasury_label.show()
 
-
-
-
 func _update_treasury_label_layout():
 	if treasury_label == null or ui == null:
 		return
 
-	var population_label = ui.get_node_or_null("PopulationLabel")
-
-	if population_label != null:
-		treasury_label.rect_position = population_label.rect_position - Vector2(0, 55)
-	else:
-		treasury_label.rect_position = Vector2(20, 15)
+	treasury_label.rect_position = Vector2(130, 12)
 
 	treasury_label.anchor_left = 0.0
 	treasury_label.anchor_top = 0.0
 	treasury_label.anchor_right = 0.0
 	treasury_label.anchor_bottom = 0.0
-	treasury_label.rect_size = Vector2(350, 50)
 
+	treasury_label.rect_size = Vector2(280, 44)
 
 func _create_land_purchase_dialog():
 	land_purchase_dialog = ConfirmationDialog.new()

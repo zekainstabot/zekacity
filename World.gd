@@ -232,10 +232,7 @@ func _ready():
 	population_label.anchor_top = 0.0
 	population_label.anchor_bottom = 0.0
 
-	population_label.rect_position = Vector2(
-		max(8.0, get_viewport().get_visible_rect().size.x - 332.0),
-		62.0
-	)
+	population_label.rect_position = Vector2(130, 62)
 
 	population_label.align = Label.ALIGN_RIGHT
 	population_label.valign = Label.VALIGN_CENTER
