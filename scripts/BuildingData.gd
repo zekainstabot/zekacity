@@ -9,6 +9,7 @@ const CATEGORY_UTILITIES = "Utilities"
 const CATEGORY_PUBLIC = "Public Services"
 const CATEGORY_RECREATION = "Recreation"
 const CATEGORY_ADVANCED = "Advanced"
+const CATEGORY_WAREHOUSES = "Warehouses"
 
 # Building definitions
 const BUILDINGS = {
@@ -212,6 +213,36 @@ const BUILDINGS = {
 		"stage": 5,
 		"population_required": 300,
 		"cost": 4500
+	},
+
+	# Warehouses
+	"small_warehouse": {
+		"name": "Small Warehouse",
+		"category": CATEGORY_WAREHOUSES,
+		"stage": 1,
+		"population_required": 0,
+		"cost": 500
+	},
+	"medium_warehouse": {
+		"name": "Medium Warehouse",
+		"category": CATEGORY_WAREHOUSES,
+		"stage": 1,
+		"population_required": 0,
+		"cost": 2000
+	},
+	"large_warehouse": {
+		"name": "Large Warehouse",
+		"category": CATEGORY_WAREHOUSES,
+		"stage": 1,
+		"population_required": 0,
+		"cost": 6000
+	},
+	"huge_warehouse": {
+		"name": "Huge Warehouse",
+		"category": CATEGORY_WAREHOUSES,
+		"stage": 1,
+		"population_required": 0,
+		"cost": 20000
 	}
 }
 
