@@ -1,4 +1,3 @@
-
 extends Node2D
 
 const GROUND_OFFSET_Y = 0.0
@@ -7,6 +6,10 @@ const BUILDING_SCALE_MULTIPLIER = 1.2
 var world = null
 var building_id = ""
 var grid_pos = Vector2.ZERO
+
+var building_index = -1
+var visual_alpha = 1.0
+
 var building_texture = null
 var drawer = null
 
@@ -14,10 +17,18 @@ var has_visible_bounds = false
 var visible_bounds = Rect2()
 
 
-func setup(p_world, p_building_id, p_grid_pos):
+func setup(
+	p_world,
+	p_building_id,
+	p_grid_pos,
+	p_building_index = -1,
+	p_visual_alpha = 1.0
+):
 	world = p_world
 	building_id = p_building_id
 	grid_pos = p_grid_pos
+	building_index = p_building_index
+	visual_alpha = p_visual_alpha
 
 	var texture_paths = {
 		"small_house": "res://BuildingImages/small_house.png",
@@ -78,6 +89,8 @@ func setup(p_world, p_building_id, p_grid_pos):
 		z_index = int(round(
 			visual_grid_pos.x + visual_grid_pos.y
 		))
+
+	modulate = Color(1, 1, 1, visual_alpha)
 
 	update()
 
@@ -198,6 +211,7 @@ func _draw():
 			0.0,
 			Vector2.ONE
 		)
+
 		if building_id in [
 			"small_house",
 			"normal_house",
@@ -242,5 +256,7 @@ func _draw():
 			building_id,
 			Vector2.ZERO
 		)
+
+
 func refresh_road_warning():
 	update()

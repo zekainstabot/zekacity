@@ -16,6 +16,7 @@ var selected_building_for_placement = ""
 var road_removal_mode = false
 var selected_road_for_removal = null
 var road_removal_dialog = null
+var road_removal_layer = null
 
 var placed_buildings = []
 # پول شخصی بازیکن؛ مستقل از خزانه شهرداری
@@ -153,6 +154,7 @@ var land_purchase_dialog = null
 var pending_land_grid = Vector2(0, 0)
 
 var buy_land_button = null
+var buy_land_button_was_visible = true
 
 var building_names = {
 	"small_house": "Small House",
@@ -393,14 +395,22 @@ func _ready():
 		self,
 		"_confirm_building_demolition"
 	)
-	# Road removal confirmation dialog.
+	# Road removal dialog - fixed to screen, independent from camera zoom.
+	road_removal_layer = CanvasLayer.new()
+	road_removal_layer.name = "RoadRemovalLayer"
+	road_removal_layer.layer = 20
+	add_child(road_removal_layer)
+
 	road_removal_dialog = ConfirmationDialog.new()
 	road_removal_dialog.name = "RoadRemovalDialog"
 	road_removal_dialog.window_title = "Remove Road"
 	road_removal_dialog.dialog_text = "Are you sure you want to remove this road?"
+	road_removal_dialog.rect_min_size = Vector2(420, 200)
+
 	road_removal_dialog.get_ok().text = "Confirm"
 	road_removal_dialog.get_cancel().text = "Cancel"
-	add_child(road_removal_dialog)
+
+	road_removal_layer.add_child(road_removal_dialog)
 
 	road_removal_dialog.connect(
 	"confirmed",
@@ -408,12 +418,11 @@ func _ready():
 	"_confirm_road_removal"
 )
 
-	road_removal_dialog.connect(
-	"modal_closed",
+	road_removal_dialog.get_cancel().connect(
+	"pressed",
 	self,
 	"_on_road_removal_dialog_closed"
 )
-
 	# Create the citizen system.
 	citizen_system = load(
 		"res://scripts/citizens/CitizenSystem.gd"
@@ -494,7 +503,6 @@ func _draw():
 		selected_y
 	)
 
-
 func _refresh_building_visuals():
 	if building_visuals_root == null:
 		return
@@ -519,10 +527,12 @@ func _refresh_building_visuals():
 		)
 
 		visual.setup(
-	self,
-	building["id"],
-	building["grid"]
-)
+			self,
+			building["id"],
+			building["grid"],
+			i,
+			alpha
+		)
 
 # =========================================
 # BUILDING DRAW DISPATCHER
@@ -1237,7 +1247,6 @@ func _refresh_road_warning_visuals():
 		if is_instance_valid(visual):
 			visual.refresh_road_warning()
 
-
 # =========================================
 # ROAD REMOVAL
 # =========================================
@@ -1252,39 +1261,39 @@ func begin_road_removal():
 	road_removal_mode = true
 	selected_road_for_removal = null
 
+	if buy_land_button != null:
+		buy_land_button_was_visible = buy_land_button.visible
+		buy_land_button.visible = false
+
 	road_system.set_removal_highlight(true)
 	road_system.set_selected_road(null)
 
 	if building_action_panel != null:
 		building_action_panel.hide_panel()
 
-	if buy_land_button != null:
-		buy_land_button.visible = false
-
 	print("ROAD REMOVAL MODE: Select a highlighted road.")
 
-
-func select_road_for_removal(grid_pos, direction):
+func select_road_for_removal(grid_pos, direction = 0):
 	if not road_removal_mode:
 		return
 
-	selected_road_for_removal = {
-		"grid": grid_pos,
-		"direction": direction
-	}
-
 	var road_system = get_node_or_null("../RoadSystem")
 
-	if road_system != null:
-		road_system.set_selected_road(selected_road_for_removal)
+	if road_system == null:
+		push_error("RoadSystem NOT FOUND")
+		cancel_road_removal()
+		return
+
+	selected_road_for_removal = {
+	"grid": grid_pos
+}
+	road_system.set_selected_road(selected_road_for_removal)
 
 	if road_removal_dialog != null:
 		road_removal_dialog.dialog_text = (
-			"Remove this road piece at "
-			+ str(grid_pos)
-			+ "?"
+			"Remove road at " + str(grid_pos) + "?"
 		)
-		road_removal_dialog.popup_centered()
+		road_removal_dialog.popup_centered(Vector2(420, 200))
 
 
 func _confirm_road_removal():
@@ -1297,23 +1306,18 @@ func _confirm_road_removal():
 	var road_system = get_node_or_null("../RoadSystem")
 
 	if road_system == null:
+		cancel_road_removal()
 		return
 
-	var grid_pos = selected_road_for_removal["grid"]
-	var direction = int(selected_road_for_removal["direction"])
-
-	var removed = road_system.remove_road_piece(
-		grid_pos,
-		direction
+	var grid_pos = selected_road_for_removal.get(
+		"grid",
+		Vector2(-1, -1)
 	)
 
+	var removed = road_system.remove_road_piece(grid_pos, 0)
+
 	if removed:
-		print(
-			"ROAD REMOVED: ",
-			grid_pos,
-			" | Direction: ",
-			direction
-		)
+		print("ROAD REMOVED: ", grid_pos)
 
 		_refresh_road_warning_visuals()
 
@@ -1322,27 +1326,18 @@ func _confirm_road_removal():
 
 		_update_population_label()
 		save_system.save_world(self)
+	else:
+		print("ROAD REMOVAL FAILED: ", grid_pos)
 
-	selected_road_for_removal = null
-	road_system.set_selected_road(null)
-	road_system.update()
+	cancel_road_removal()
+	update()
 
 
 func _on_road_removal_dialog_closed():
 	if selected_road_for_removal == null:
 		return
 
-	# Cancel only the current selection.
-	# Keep road removal mode active.
-	selected_road_for_removal = null
-
-	var road_system = get_node_or_null("../RoadSystem")
-
-	if road_system != null:
-		road_system.set_selected_road(null)
-
-	print("ROAD REMOVAL: Selection cancelled.")
-
+	cancel_road_removal()
 
 func cancel_road_removal():
 	road_removal_mode = false
@@ -1351,10 +1346,14 @@ func cancel_road_removal():
 	var road_system = get_node_or_null("../RoadSystem")
 
 	if road_system != null:
-		road_system.set_removal_highlight(false)
 		road_system.set_selected_road(null)
+		road_system.set_removal_highlight(false)
+		road_system.update()
 
 	if road_removal_dialog != null:
 		road_removal_dialog.hide()
+
+	if buy_land_button != null:
+		buy_land_button.visible = buy_land_button_was_visible
 
 	print("ROAD REMOVAL MODE CANCELLED")
