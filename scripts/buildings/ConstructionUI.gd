@@ -428,7 +428,6 @@ func _on_viewport_size_changed():
 	rect_size = get_viewport_rect().size
 	_update_panel_size()
 
-
 func open_menu():
 	selected_building_id = null
 	selected_category = "All"
@@ -442,12 +441,9 @@ func open_menu():
 	if building_scroll != null:
 		building_scroll.scroll_horizontal = 0
 
-	_refresh_building_cards()
-
 	show()
 	main_panel.show()
 	raise()
-
 
 func _create_category_button(category_name):
 	var button = Button.new()

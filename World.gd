@@ -58,6 +58,7 @@ var world_ui_controller = preload(
 
 var building_action_panel = null
 var building_visuals_root = null
+var building_texture_bounds_cache = {}
 
 var building_visibility = preload(
 	"res://scripts/buildings/BuildingVisibility.gd"
@@ -503,6 +504,41 @@ func _draw():
 		selected_y
 	)
 
+func _create_building_visual(index):
+	if building_visuals_root == null:
+		return
+
+	if index < 0 or index >= placed_buildings.size():
+		return
+
+	var building = placed_buildings[index]
+
+	var script_resource = load(
+		"res://scripts/buildings/BuildingVisual.gd"
+	)
+
+	if script_resource == null:
+		push_error("BuildingVisual.gd could not be loaded")
+		return
+
+	var visual = Node2D.new()
+	visual.set_script(script_resource)
+
+	building_visuals_root.add_child(visual)
+
+	var alpha = building_visibility.get_building_alpha(
+		index,
+		placed_buildings
+	)
+
+	visual.setup(
+		self,
+		building["id"],
+		building["grid"],
+		index,
+		alpha
+	)
+
 func _refresh_building_visuals():
 	if building_visuals_root == null:
 		return
@@ -511,28 +547,8 @@ func _refresh_building_visuals():
 		building_visuals_root.remove_child(child)
 		child.free()
 
-	var visual_script = preload(
-		"res://scripts/buildings/BuildingVisual.gd"
-	)
-
 	for i in range(placed_buildings.size()):
-		var building = placed_buildings[i]
-		var visual = visual_script.new()
-
-		building_visuals_root.add_child(visual)
-
-		var alpha = building_visibility.get_building_alpha(
-			i,
-			placed_buildings
-		)
-
-		visual.setup(
-			self,
-			building["id"],
-			building["grid"],
-			i,
-			alpha
-		)
+		_create_building_visual(i)
 
 # =========================================
 # BUILDING DRAW DISPATCHER
@@ -799,7 +815,7 @@ func _place_building(building_id):
 	selected_building_for_placement = ""
 	road_placement_direction = -1
 
-	_refresh_building_visuals()
+	_create_building_visual(placed_buildings.size() - 1)
 	_update_treasury_label()
 	update()
 

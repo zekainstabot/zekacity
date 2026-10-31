@@ -1,3 +1,4 @@
+
 extends Node2D
 
 const GROUND_OFFSET_Y = 0.0
@@ -53,8 +54,10 @@ func setup(
 	has_visible_bounds = false
 	visible_bounds = Rect2()
 
+	var texture_path = ""
+
 	if texture_paths.has(building_id):
-		var texture_path = texture_paths[building_id]
+		texture_path = texture_paths[building_id]
 
 		if ResourceLoader.exists(texture_path):
 			building_texture = load(texture_path)
@@ -62,7 +65,22 @@ func setup(
 			push_warning("Building texture not found: " + texture_path)
 
 	if building_texture != null:
-		_calculate_visible_bounds()
+		var cached_bounds = null
+
+		if world != null and world.building_texture_bounds_cache.has(texture_path):
+			cached_bounds = world.building_texture_bounds_cache[texture_path]
+
+		if cached_bounds != null:
+			has_visible_bounds = cached_bounds["valid"]
+			visible_bounds = cached_bounds["bounds"]
+		else:
+			_calculate_visible_bounds()
+
+			if world != null:
+				world.building_texture_bounds_cache[texture_path] = {
+					"valid": has_visible_bounds,
+					"bounds": visible_bounds
+				}
 	else:
 		push_warning("No texture loaded for building: " + building_id)
 
