@@ -28,7 +28,7 @@ func save_world(world):
 		"citizens": []
 	}
 
-	# ساختمان‌ها، مالکیت و حساب کسب‌وکار
+	# ساختمان‌ها و حساب کسب‌وکار
 	for building in world.placed_buildings:
 		data["placed_buildings"].append({
 			"id": str(building.get("id", "")),
@@ -103,13 +103,18 @@ func save_world(world):
 		data["mineral_market"] = market.get_stock_data()
 
 	# جاده‌ها
+	# ساختار جدید: هر جاده فقط یک grid دارد.
 	var road_system = world.get_node_or_null("../RoadSystem")
 
 	if road_system != null:
 		for road in road_system.roads:
+			if typeof(road) != TYPE_DICTIONARY:
+				continue
+
 			data["roads"].append({
-				"grid": _vector_to_data(road["grid"]),
-				"direction": int(road["direction"])
+				"grid": _vector_to_data(
+					road.get("grid", Vector2.ZERO)
+				)
 			})
 
 	# کوه‌ها و معدن‌ها
@@ -123,12 +128,18 @@ func save_world(world):
 
 			data["mountains"].append({
 				"id": str(mountain_id),
-				"resource_id": str(mountain["resource_id"]),
-				"origin": _vector_to_data(mountain["origin"]),
-				"mine_point": _vector_to_data(
-					mountain["mine_point"]
+				"resource_id": str(
+					mountain.get("resource_id", "")
 				),
-				"mine_built": bool(mountain["mine_built"])
+				"origin": _vector_to_data(
+					mountain.get("origin", Vector2.ZERO)
+				),
+				"mine_point": _vector_to_data(
+					mountain.get("mine_point", Vector2.ZERO)
+				),
+				"mine_built": bool(
+					mountain.get("mine_built", false)
+				)
 			})
 
 		if mountain_system.mine_system != null:
@@ -137,14 +148,16 @@ func save_world(world):
 
 				data["mines"].append({
 					"id": str(mine_id),
-					"resource_id": str(mine["resource_id"]),
-					"active": bool(mine["active"]),
-					"remaining": int(mine["remaining"]),
-					"initial_reserve": int(
-						mine["initial_reserve"]
+					"resource_id": str(
+						mine.get("resource_id", "")
 					),
-					"extracted": int(mine["extracted"]),
-					"elapsed": float(mine["elapsed"])
+					"active": bool(mine.get("active", false)),
+					"remaining": int(mine.get("remaining", 0)),
+					"initial_reserve": int(
+						mine.get("initial_reserve", 0)
+					),
+					"extracted": int(mine.get("extracted", 0)),
+					"elapsed": float(mine.get("elapsed", 0.0))
 				})
 
 	# شهروندها
@@ -180,10 +193,10 @@ func load_world(world):
 		push_error("SaveSystem: Could not read save file")
 		return false
 
-	var text = file.get_as_text()
+	var save_text = file.get_as_text()
 	file.close()
 
-	var data = parse_json(text)
+	var data = parse_json(save_text)
 
 	if typeof(data) != TYPE_DICTIONARY:
 		push_error("SaveSystem: Save file is invalid")
@@ -202,6 +215,9 @@ func load_world(world):
 	world.placed_buildings.clear()
 
 	for building in data.get("placed_buildings", []):
+		if typeof(building) != TYPE_DICTIONARY:
+			continue
+
 		world.placed_buildings.append({
 			"id": str(building.get("id", "")),
 			"grid": _data_to_vector(
@@ -259,7 +275,7 @@ func load_world(world):
 	var treasury_data = data.get("treasury", {})
 	var treasury = world.city_treasury
 
-	if treasury != null:
+	if treasury != null and typeof(treasury_data) == TYPE_DICTIONARY:
 		treasury.balance = int(
 			treasury_data.get(
 				"balance",
@@ -282,14 +298,17 @@ func load_world(world):
 			)
 		)
 
-		treasury.municipal_banks = treasury_data.get(
+		var saved_banks = treasury_data.get(
 			"municipal_banks", []
-		).duplicate(true)
+		)
+
+		if typeof(saved_banks) == TYPE_ARRAY:
+			treasury.municipal_banks = saved_banks.duplicate(true)
 
 	# منابع شهرداری
 	var saved_resources = data.get("resources", {})
 
-	if world.resource_manager != null:
+	if world.resource_manager != null and typeof(saved_resources) == TYPE_DICTIONARY:
 		for resource_id in world.resource_manager.amounts.keys():
 			if saved_resources.has(resource_id):
 				world.resource_manager.amounts[resource_id] = int(
@@ -305,18 +324,28 @@ func load_world(world):
 		)
 
 	# جاده‌ها
+	# direction ذخیره‌های قدیمی عمداً نادیده گرفته می‌شود.
 	var road_system = world.get_node_or_null("../RoadSystem")
 
 	if road_system != null:
 		road_system.roads.clear()
 
-		for road in data.get("roads", []):
-			road_system.roads.append({
-				"grid": _data_to_vector(
-					road.get("grid", {})
-				),
-				"direction": int(road.get("direction", 0))
-			})
+		var saved_roads = data.get("roads", [])
+
+		if typeof(saved_roads) == TYPE_ARRAY:
+			for road in saved_roads:
+				if typeof(road) != TYPE_DICTIONARY:
+					continue
+
+				road_system.roads.append({
+					"grid": _data_to_vector(
+						road.get("grid", {})
+					)
+				})
+
+		# حذف جاده‌های تکراری و نرمال‌سازی ساختار
+		if road_system.has_method("_normalize_roads"):
+			road_system._normalize_roads()
 
 		road_system.update()
 
@@ -328,46 +357,62 @@ func load_world(world):
 	if mountain_system != null:
 		mountain_system.mountains.clear()
 
-		for mountain in data.get("mountains", []):
-			var mountain_id = str(mountain.get("id", ""))
+		var saved_mountains = data.get("mountains", [])
 
-			mountain_system.mountains[mountain_id] = {
-				"resource_id": str(
-					mountain.get("resource_id", "")
-				),
-				"origin": _data_to_vector(
-					mountain.get("origin", {})
-				),
-				"mine_point": _data_to_vector(
-					mountain.get("mine_point", {})
-				),
-				"mine_built": bool(
-					mountain.get("mine_built", false)
+		if typeof(saved_mountains) == TYPE_ARRAY:
+			for mountain in saved_mountains:
+				if typeof(mountain) != TYPE_DICTIONARY:
+					continue
+
+				var mountain_id = str(
+					mountain.get("id", "")
 				)
-			}
+
+				mountain_system.mountains[mountain_id] = {
+					"resource_id": str(
+						mountain.get("resource_id", "")
+					),
+					"origin": _data_to_vector(
+						mountain.get("origin", {})
+					),
+					"mine_point": _data_to_vector(
+						mountain.get("mine_point", {})
+					),
+					"mine_built": bool(
+						mountain.get("mine_built", false)
+					)
+				}
 
 		if mountain_system.mine_system != null:
 			mountain_system.mine_system.mines.clear()
 
-			for mine in data.get("mines", []):
-				var mine_id = str(mine.get("id", ""))
+			var saved_mines = data.get("mines", [])
 
-				mountain_system.mine_system.mines[mine_id] = {
-					"resource_id": str(
-						mine.get("resource_id", "")
-					),
-					"active": bool(mine.get("active", false)),
-					"remaining": int(mine.get("remaining", 0)),
-					"initial_reserve": int(
-						mine.get("initial_reserve", 0)
-					),
-					"extracted": int(
-						mine.get("extracted", 0)
-					),
-					"elapsed": float(
-						mine.get("elapsed", 0.0)
+			if typeof(saved_mines) == TYPE_ARRAY:
+				for mine in saved_mines:
+					if typeof(mine) != TYPE_DICTIONARY:
+						continue
+
+					var mine_id = str(
+						mine.get("id", "")
 					)
-				}
+
+					mountain_system.mine_system.mines[mine_id] = {
+						"resource_id": str(
+							mine.get("resource_id", "")
+						),
+						"active": bool(mine.get("active", false)),
+						"remaining": int(mine.get("remaining", 0)),
+						"initial_reserve": int(
+							mine.get("initial_reserve", 0)
+						),
+						"extracted": int(
+							mine.get("extracted", 0)
+						),
+						"elapsed": float(
+							mine.get("elapsed", 0.0)
+						)
+					}
 
 		mountain_system.update()
 

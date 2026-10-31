@@ -159,12 +159,11 @@ func on_category_selected(id):
 	next_building_menu_id = 1
 
 	if id == 101:
-		submenu_menu.add_item("Horizontal Road", 201)
-		submenu_menu.add_item("Vertical Road", 202)
+		submenu_menu.add_item("Road", 201)
 		submenu_menu.add_separator()
 		submenu_menu.add_item("Remove Road", 203)
 		_show_submenu()
-		return
+	return
 
 	if id == 109:
 		submenu_menu.add_item("Stone Mine", 301)
@@ -218,13 +217,7 @@ func _on_SubmenuMenu_id_pressed(id):
 		_cancel_road_removal_if_active()
 		world.selected_building_for_placement = ""
 		world._place_road(0)
-		return
-
-	if id == 202:
-		_cancel_road_removal_if_active()
-		world.selected_building_for_placement = ""
-		world._place_road(1)
-		return
+	return
 
 	if id == 203:
 		world.selected_building_for_placement = ""

@@ -1161,28 +1161,13 @@ func _on_BuildHouseButton_pressed():
 	else:
 		push_error("ConstructionUI not found inside ConstructionLayer")
 
-
 func _on_construction_ui_building_confirmed(building_id):
-	if building_id == "road_horizontal":
-		selected_building_for_placement = ""
-
-		if has_meta("mine_placement_resource"):
-			remove_meta("mine_placement_resource")
-
-		_place_road(0)
-		return
-
-	if building_id == "road_vertical":
-		selected_building_for_placement = ""
-
-		if has_meta("mine_placement_resource"):
-			remove_meta("mine_placement_resource")
-
-		_place_road(1)
-		return
-
 	if building_id == "road":
 		selected_building_for_placement = ""
+
+		if has_meta("mine_placement_resource"):
+			remove_meta("mine_placement_resource")
+
 		_place_road(0)
 		return
 

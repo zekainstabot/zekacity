@@ -19,8 +19,6 @@ const BUILDING_IMAGE_PATHS = {
 	"normal_house": "res://BuildingImages/normal_house.png",
 	"low_apartment": "res://BuildingImages/low_apartment.png",
 	"high_apartment": "res://BuildingImages/high_apartment.png",
-	"road_horizontal": "res://BuildingImages/road_straight.png",
-	"road_vertical": "res://BuildingImages/road_vertical.png",
 	"road": "res://BuildingImages/road_straight.png",
 	"residential_tower": "res://BuildingImages/residential_tower.png",
 	"grocery_store": "res://BuildingImages/grocery_store.png",
@@ -46,8 +44,6 @@ const BUILDING_IMAGE_PATHS = {
 
 const BUILDING_ICONS = {
 	"road": "Road",
-	"road_horizontal": "Horizontal Road",
-	"road_vertical": "Vertical Road",
 	"remove_road": "Remove Road",
 	"small_house": "House",
 	"normal_house": "House",
@@ -202,31 +198,23 @@ func _load_buildings():
 			buildings.append(mine)
 
 	var road_definitions = [
-		{
-			"id": "road_horizontal",
-			"name": "Horizontal Road",
-			"category": "Roads",
-			"cost": 0,
-			"population_required": 0,
-			"icon": "Horizontal Road"
-		},
-		{
-			"id": "road_vertical",
-			"name": "Vertical Road",
-			"category": "Roads",
-			"cost": 0,
-			"population_required": 0,
-			"icon": "Vertical Road"
-		},
-		{
-			"id": "remove_road",
-			"name": "Remove Road",
-			"category": "Roads",
-			"cost": 0,
-			"population_required": 0,
-			"icon": "Remove Road"
-		}
-	]
+	{
+		"id": "road",
+		"name": "Road",
+		"category": "Roads",
+		"cost": 20,
+		"population_required": 0,
+		"icon": "Road"
+	},
+	{
+		"id": "remove_road",
+		"name": "Remove Road",
+		"category": "Roads",
+		"cost": 0,
+		"population_required": 0,
+		"icon": "Remove Road"
+	}
+]
 
 	for road_definition in road_definitions:
 		var road_exists = false
@@ -242,10 +230,8 @@ func _load_buildings():
 	print("CONSTRUCTION BUILDINGS LOADED: ", buildings.size())
 	print("STONE MINE AVAILABLE: ", true)
 	print("IRON MINE AVAILABLE: ", true)
-	print("HORIZONTAL ROAD AVAILABLE: ", true)
-	print("VERTICAL ROAD AVAILABLE: ", true)
+	print("ROAD AVAILABLE: ", true)
 	print("REMOVE ROAD AVAILABLE: ", true)
-
 
 func _make_font(font_size):
 	if font_cache.has(font_size):
