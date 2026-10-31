@@ -3,8 +3,11 @@ extends Node2D
 const ROAD_HORIZONTAL_PATH = "res://BuildingImages/road_straight.png"
 const ROAD_VERTICAL_PATH = "res://BuildingImages/road_vertical.png"
 
-var tile_width = 64
-var tile_height = 32
+const TILE_WIDTH = 64.0
+const TILE_HEIGHT = 32.0
+
+var tile_width = TILE_WIDTH
+var tile_height = TILE_HEIGHT
 var map_center = Vector2(600, 130)
 
 var roads = []
@@ -12,13 +15,15 @@ var roads = []
 var road_horizontal_texture = null
 var road_vertical_texture = null
 
-var road_texture_size = Vector2(106, 53)
+# Exact isometric tile dimensions.
+var road_texture_size = Vector2(64, 32)
 
 var horizontal_offset = Vector2.ZERO
 var vertical_offset = Vector2.ZERO
 
-var left_end_shift = 20.0
-var deformation_columns = 16
+# Kept for compatibility with existing code.
+var left_end_shift = 0.0
+var deformation_columns = 1
 
 # Road removal mode
 var removal_highlight_enabled = false
@@ -45,6 +50,7 @@ func _draw():
 		var direction = int(road.get("direction", 0))
 
 		var texture = _get_road_texture(direction)
+
 		if texture == null:
 			continue
 
@@ -83,52 +89,24 @@ func _get_road_offset(direction):
 	return Vector2.ZERO
 
 
+# Draws the complete road tile without deformation.
 func _draw_road_texture(texture, center, tint = Color(1, 1, 1, 1)):
 	if texture == null:
 		return
 
-	var source_size = texture.get_size()
+	var overlap = 0.5
 
-	if source_size.x <= 0 or source_size.y <= 0:
-		return
+	var destination = Rect2(
+	center - road_texture_size / 2.0 - Vector2(overlap, overlap),
+	road_texture_size + Vector2(overlap * 2.0, overlap * 2.0)
+)
 
-	var target_width = road_texture_size.x
-	var target_height = road_texture_size.y
-
-	var scale_x = target_width / source_size.x
-
-	var affected_columns = clamp(
-		int(deformation_columns),
-		1,
-		int(source_size.x)
+	draw_texture_rect(
+		texture,
+		destination,
+		false,
+		tint
 	)
-
-	for x in range(int(source_size.x)):
-		var shift = 0.0
-
-		if x < affected_columns:
-			var progress = float(affected_columns - x) / float(affected_columns)
-			shift = left_end_shift * progress
-
-		var destination = Rect2(
-			center + Vector2(
-				-target_width / 2.0 + x * scale_x,
-				-target_height / 2.0 + shift
-			),
-			Vector2(scale_x + 0.5, target_height)
-		)
-
-		var source = Rect2(
-			Vector2(x, 0),
-			Vector2(1, source_size.y)
-		)
-
-		draw_texture_rect_region(
-			texture,
-			destination,
-			source,
-			tint
-		)
 
 
 func _grid_to_screen(grid_pos):
@@ -174,8 +152,7 @@ func remove_road_piece(grid_pos, direction):
 	return false
 
 
-# Keeps the old function for compatibility with existing code.
-# Warning: this removes every road direction on the selected tile.
+# Keeps compatibility with existing code.
 func remove_road(grid_pos):
 	var removed = false
 
@@ -207,13 +184,11 @@ func has_road_direction(grid_pos, direction):
 	return false
 
 
-# Enables or disables road removal highlighting.
 func set_removal_highlight(enabled):
 	removal_highlight_enabled = enabled
 	update()
 
 
-# Marks one road as selected.
 func set_selected_road(road_data):
 	selected_road_for_removal = road_data
 	update()
@@ -231,7 +206,6 @@ func _is_selected_road(grid_pos, direction):
 
 
 # Finds the closest road under the mouse.
-# Returns {"grid": Vector2, "direction": int} or null.
 func get_road_at_position(local_mouse_pos):
 	var best_road = null
 	var best_distance = INF
@@ -243,8 +217,8 @@ func get_road_at_position(local_mouse_pos):
 		var center = _grid_to_screen(grid_pos) + _get_road_offset(direction)
 
 		var hit_rect = Rect2(
-			center - road_texture_size / 2.0 - Vector2(0, left_end_shift),
-			road_texture_size + Vector2(0, left_end_shift)
+			center - road_texture_size / 2.0,
+			road_texture_size
 		)
 
 		if hit_rect.has_point(local_mouse_pos):
@@ -252,6 +226,7 @@ func get_road_at_position(local_mouse_pos):
 
 			if distance < best_distance:
 				best_distance = distance
+
 				best_road = {
 					"grid": grid_pos,
 					"direction": direction
@@ -283,11 +258,10 @@ func set_vertical_offset(x, y):
 	update()
 
 
+# Kept for compatibility. No deformation is applied.
 func set_left_end_shift(value):
 	left_end_shift = float(value)
-	update()
 
 
 func set_deformation_columns(value):
 	deformation_columns = max(1, int(value))
-	update()
