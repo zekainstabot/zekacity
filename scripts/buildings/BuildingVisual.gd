@@ -169,32 +169,32 @@ func _draw():
 	if world == null:
 		return
 
+	var footprint = Vector2.ONE
+
+	if world.building_footprints != null:
+		footprint = world.building_footprints.get_footprint(
+			building_id
+		)
+
+	var tile_w = float(world.tile_width)
+	var tile_h = float(world.tile_height)
+
+	var target_size = Vector2(
+		max(
+			tile_w,
+			(footprint.x + footprint.y) * tile_w / 2.0
+		),
+		max(
+			tile_h * 2.0,
+			(footprint.x + footprint.y) * tile_h * 1.5
+		)
+	)
+
 	if building_texture != null:
 		var texture_size = building_texture.get_size()
 
 		if texture_size.x <= 0 or texture_size.y <= 0:
 			return
-
-		var footprint = Vector2.ONE
-
-		if world.building_footprints != null:
-			footprint = world.building_footprints.get_footprint(
-				building_id
-			)
-
-		var tile_w = float(world.tile_width)
-		var tile_h = float(world.tile_height)
-
-		var target_size = Vector2(
-			max(
-				tile_w,
-				(footprint.x + footprint.y) * tile_w / 2.0
-			),
-			max(
-				tile_h * 2.0,
-				(footprint.x + footprint.y) * tile_h * 1.5
-			)
-		)
 
 		var scale_factor = min(
 			target_size.x / texture_size.x,
@@ -234,50 +234,47 @@ func _draw():
 			Vector2.ONE
 		)
 
-		if building_id in [
-			"small_house",
-			"normal_house",
-			"low_apartment",
-			"high_apartment",
-			"residential_tower"
-		]:
-			if not world._building_has_road_access(
+	else:
+		if drawer != null:
+			drawer.draw_building(
+				self,
 				building_id,
-				grid_pos
-			):
-				var marker_position = Vector2(
-					0,
-					-target_size.y * 0.75
-				)
+				Vector2.ZERO
+			)
 
-				draw_circle(
-					marker_position,
-					11.0,
-					Color(0.9, 0.12, 0.12, 1)
-				)
+	# Road access warning for ALL buildings.
+	if not world._building_has_road_access(
+		building_id,
+		grid_pos
+	):
+		_draw_road_warning(target_size)
 
-				draw_line(
-					marker_position + Vector2(0, -5),
-					marker_position + Vector2(0, 2),
-					Color(1, 1, 1, 1),
-					2.5,
-					true
-				)
 
-				draw_circle(
-					marker_position + Vector2(0, 6),
-					1.5,
-					Color(1, 1, 1, 1)
-				)
+func _draw_road_warning(target_size):
+	var marker_position = Vector2(
+		0,
+		-target_size.y * 0.75
+	)
 
-		return
+	draw_circle(
+		marker_position,
+		11.0,
+		Color(0.9, 0.12, 0.12, 1)
+	)
 
-	if drawer != null:
-		drawer.draw_building(
-			self,
-			building_id,
-			Vector2.ZERO
-		)
+	draw_line(
+		marker_position + Vector2(0, -5),
+		marker_position + Vector2(0, 2),
+		Color(1, 1, 1, 1),
+		2.5,
+		true
+	)
+
+	draw_circle(
+		marker_position + Vector2(0, 6),
+		1.5,
+		Color(1, 1, 1, 1)
+	)
 
 
 func refresh_road_warning():
