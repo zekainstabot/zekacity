@@ -6,10 +6,18 @@ extends Reference
 
 
 func handle_input(event, world):
-	if not event is InputEventMouseButton:
-		return
+	var is_click = (
+		event is InputEventMouseButton
+		and event.button_index == BUTTON_LEFT
+		and event.pressed
+	)
 
-	if event.button_index != BUTTON_LEFT or not event.pressed:
+	var is_touch = (
+		event is InputEventScreenTouch
+		and not event.pressed
+	)
+
+	if not is_click and not is_touch:
 		return
 
 	var mouse_pos = world.get_local_mouse_position()
@@ -112,9 +120,7 @@ func _handle_mine_placement(mouse_pos, world):
 	)
 
 	if mountain_id == "":
-		print(
-			"MINE ERROR: Click directly on the pickaxe marker of the correct mountain."
-		)
+		print("MINE ERROR: Click directly on the pickaxe marker of the correct mountain.")
 		return
 
 	if not mountain_system.can_build_mine(mountain_id):
@@ -267,7 +273,6 @@ func _select_land(mouse_pos, world):
 
 	world.selected_x = int(selected_tile.x)
 	world.selected_y = int(selected_tile.y)
-	world.selected_building_index = -1
 
 	var clicked_grid = Vector2(
 		world.selected_x,
@@ -290,7 +295,6 @@ func _select_land(mouse_pos, world):
 			and clicked_grid.y < origin.y + footprint.y
 		):
 			world.selected_building_index = i
-
 			world.building_visibility.set_selected_building(i)
 			break
 
@@ -387,7 +391,6 @@ func _handle_road_removal_click(world):
 		print("Invalid road position.")
 		return
 
-	# سیستم جدید جاده direction ندارد.
 	world.select_road_for_removal(
 		road_grid,
 		0

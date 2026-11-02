@@ -1,4 +1,3 @@
-
 extends Node2D
 
 const GROUND_OFFSET_Y = 0.0
@@ -39,16 +38,14 @@ func setup(
 		"low_apartment": "res://BuildingImages/low_apartment.png",
 		"high_apartment": "res://BuildingImages/high_apartment.png",
 		"residential_tower": "res://BuildingImages/residential_tower.png",
+
 		"small_warehouse": "res://BuildingImages/small_warehouse.png",
 		"medium_warehouse": "res://BuildingImages/medium_warehouse.png",
-		"large_warehouse": "res://BuildingImages/medium_warehouse.png",
-		"huge_warehouse": "res://BuildingImages/medium_warehouse.png",
+
 		"grocery_store": "res://BuildingImages/grocery_store.png",
 		"bakery": "res://BuildingImages/bakery.png",
 		"restaurant": "res://BuildingImages/restaurant.png",
 		"office": "res://BuildingImages/office.png",
-		"shopping_mall": "res://BuildingImages/shopping_mall.png",
-		"factory": "res://BuildingImages/factory.png",
 		"mineral_market": "res://BuildingImages/mineral_market.png"
 	}
 
@@ -93,14 +90,11 @@ func setup(
 			building_id
 		)
 
-	# Calculate the geometric center of the occupied tiles.
 	var visual_grid_pos = grid_pos + Vector2(
 		(footprint.x - 1.0) / 2.0,
 		(footprint.y - 1.0) / 2.0
 	)
 
-	# Position the visual at the actual footprint center.
-	# No additional vertical offset is applied.
 	if world != null:
 		position = world.grid_to_screen(
 			visual_grid_pos,
