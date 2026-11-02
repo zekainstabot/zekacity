@@ -36,7 +36,7 @@ func find_building_at_position(
 				* tile_height / 2.0
 		)
 
-		# محدودهٔ کف ساختمان بر اساس footprint واقعی
+		# Calculate selectable ground area from actual footprint.
 		var ground_width = (
 			footprint.x + footprint.y
 		) * tile_width / 2.0
@@ -45,25 +45,12 @@ func find_building_at_position(
 			footprint.x + footprint.y
 		) * tile_height / 2.0
 
-		# ارتفاع بصری ساختمان؛ فقط برای انتخاب قسمت بالایی تصویر
+		# Calculate selectable height from footprint.
 		var building_height = max(
 			90.0,
-			ground_height + 35.0
+			ground_height + 70.0
 		)
 
-		match building_id:
-			"small_house":
-				building_height = 90.0
-			"normal_house":
-				building_height = 110.0
-			"low_apartment":
-				building_height = 125.0
-			"high_apartment":
-				building_height = 145.0
-			"residential_tower":
-				building_height = 175.0
-
-		# محدودهٔ انتخاب از بالای ساختمان تا کف footprint
 		var half_width = max(
 			ground_width / 2.0,
 			32.0

@@ -1,4 +1,3 @@
-
 extends Reference
 
 # ZekaCity - BuildingInteractionController.gd
@@ -22,7 +21,6 @@ func handle_input(event, world):
 
 	var mouse_pos = world.get_local_mouse_position()
 
-	# Road removal mode has priority over all other interactions.
 	if world.road_removal_mode:
 		_handle_road_removal_click(world)
 		return
@@ -192,6 +190,7 @@ func _handle_building_move(mouse_pos, world):
 	world.moving_building_index = -1
 	world.moving_building_origin = Vector2(-1, -1)
 
+	world._refresh_building_visuals()
 	world.update()
 
 	if result["success"]:
@@ -220,6 +219,7 @@ func _select_building(building_index, world):
 		building_index
 	)
 
+	world._refresh_building_visuals()
 	world.update()
 
 	if world.building_action_panel != null:
@@ -279,6 +279,9 @@ func _select_land(mouse_pos, world):
 		world.selected_y
 	)
 
+	var previous_selection = world.selected_building_index
+	world.selected_building_index = -1
+
 	for i in range(world.placed_buildings.size() - 1, -1, -1):
 		var building = world.placed_buildings[i]
 
@@ -314,6 +317,9 @@ func _select_land(mouse_pos, world):
 
 		if world.buy_land_button != null:
 			world.buy_land_button.visible = false
+
+	if previous_selection != world.selected_building_index:
+		world._refresh_building_visuals()
 
 	world.update()
 
