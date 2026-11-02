@@ -1,3 +1,4 @@
+
 extends Node2D
 
 const GROUND_OFFSET_Y = 0.0
@@ -41,11 +42,15 @@ func setup(
 
 		"small_warehouse": "res://BuildingImages/small_warehouse.png",
 		"medium_warehouse": "res://BuildingImages/medium_warehouse.png",
+		"large_warehouse": "res://BuildingImages/medium_warehouse.png",
+		"huge_warehouse": "res://BuildingImages/medium_warehouse.png",
 
 		"grocery_store": "res://BuildingImages/grocery_store.png",
 		"bakery": "res://BuildingImages/bakery.png",
 		"restaurant": "res://BuildingImages/restaurant.png",
 		"office": "res://BuildingImages/office.png",
+		"shopping_mall": "res://BuildingImages/shopping_mall.png",
+		"factory": "res://BuildingImages/factory.png",
 		"mineral_market": "res://BuildingImages/mineral_market.png"
 	}
 
@@ -96,10 +101,16 @@ func setup(
 	)
 
 	if world != null:
+		var ground_offset = (
+			(footprint.x + footprint.y)
+			* float(world.tile_height)
+			/ 4.0
+		)
+
 		position = world.grid_to_screen(
 			visual_grid_pos,
 			Vector2(600, 130)
-		)
+		) + Vector2(0, ground_offset)
 
 		z_index = int(round(
 			visual_grid_pos.x + visual_grid_pos.y
