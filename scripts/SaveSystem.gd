@@ -1,4 +1,3 @@
-
 extends Reference
 
 # ZekaCity - SaveSystem.gd
@@ -22,6 +21,7 @@ func save_world(world):
 		"treasury": {},
 		"resources": {},
 		"mineral_market": {},
+		"mineral_market_sale_accumulators": {},
 		"roads": [],
 		"mountains": [],
 		"mines": [],
@@ -96,11 +96,14 @@ func save_world(world):
 			world.resource_manager.get_all_amounts()
 		)
 
-	# موجودی بازار مواد معدنی
+	# موجودی و زمان‌بندی فروش خودکار بازار مواد معدنی
 	var market = world.get("mineral_market_system")
 
 	if market != null:
 		data["mineral_market"] = market.get_stock_data()
+		data["mineral_market_sale_accumulators"] = (
+			market.sale_accumulators.duplicate(true)
+		)
 
 	# جاده‌ها
 	# ساختار جدید: هر جاده فقط یک grid دارد.
@@ -315,13 +318,26 @@ func load_world(world):
 					saved_resources[resource_id]
 				)
 
-	# بازیابی موجودی بازار مواد معدنی
+	# بازیابی موجودی و زمان‌بندی فروش خودکار بازار مواد معدنی
 	var market = world.get("mineral_market_system")
 
 	if market != null:
 		market.restore_stock(
 			data.get("mineral_market", {})
 		)
+
+		var saved_accumulators = data.get(
+			"mineral_market_sale_accumulators",
+			{}
+		)
+
+		if typeof(saved_accumulators) == TYPE_DICTIONARY:
+			for resource_id in market.sale_accumulators.keys():
+				market.sale_accumulators[resource_id] = clamp(
+					float(saved_accumulators.get(resource_id, 0.0)),
+					0.0,
+					0.999999
+				)
 
 	# جاده‌ها
 	# direction ذخیره‌های قدیمی عمداً نادیده گرفته می‌شود.

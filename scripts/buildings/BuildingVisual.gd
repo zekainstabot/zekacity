@@ -3,6 +3,8 @@ extends Node2D
 
 const GROUND_OFFSET_Y = 0.0
 const BUILDING_SCALE_MULTIPLIER = 1.2
+const MINERAL_MARKET_SCALE_MULTIPLIER = 1.0
+const MINERAL_MARKET_ANCHOR = Vector2(740.0, 895.0)
 
 var world = null
 var building_id = ""
@@ -91,22 +93,19 @@ func setup(
 			building_id
 		)
 
+	# Calculate the geometric center of the occupied tiles.
 	var visual_grid_pos = grid_pos + Vector2(
 		(footprint.x - 1.0) / 2.0,
 		(footprint.y - 1.0) / 2.0
 	)
 
+	# Position the visual at the actual footprint center.
+	# No additional vertical offset is applied.
 	if world != null:
-		var ground_offset = (
-			(footprint.x + footprint.y)
-			* float(world.tile_height)
-			/ 4.0
-		)
-
 		position = world.grid_to_screen(
 			visual_grid_pos,
 			Vector2(600, 130)
-		) + Vector2(0, ground_offset)
+		)
 
 		z_index = int(round(
 			visual_grid_pos.x + visual_grid_pos.y
@@ -201,6 +200,9 @@ func _draw():
 			target_size.y / texture_size.y
 		) * BUILDING_SCALE_MULTIPLIER
 
+		if building_id == "mineral_market":
+			scale_factor *= MINERAL_MARKET_SCALE_MULTIPLIER
+
 		var anchor_x = texture_size.x / 2.0
 		var anchor_y = texture_size.y
 
@@ -211,6 +213,10 @@ func _draw():
 			)
 
 			anchor_y = visible_bounds.end.y
+
+		if building_id == "mineral_market":
+			anchor_x = MINERAL_MARKET_ANCHOR.x
+			anchor_y = MINERAL_MARKET_ANCHOR.y
 
 		var draw_position = Vector2(
 			-anchor_x * scale_factor,
@@ -242,7 +248,6 @@ func _draw():
 				Vector2.ZERO
 			)
 
-	# Road access warning for ALL buildings.
 	if not world._building_has_road_access(
 		building_id,
 		grid_pos

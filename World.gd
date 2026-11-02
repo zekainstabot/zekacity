@@ -673,6 +673,7 @@ func _on_ConstructionMenu_id_pressed(id):
 # =========================================
 # PLACING BUILDINGS
 # =========================================
+
 func _place_building(building_id):
 	# Roads must be placed through RoadSystem.
 	if building_id == "road":
@@ -680,38 +681,29 @@ func _place_building(building_id):
 		_place_road(0)
 		return false
 
+	# The clicked tile is the exact building origin.
 	var grid_pos = Vector2(selected_x, selected_y)
 	var road_system = get_node_or_null("../RoadSystem")
 
-	# Check the selected tile and its 4 direct neighbors.
-	var candidate_positions = [
+	# Validate the exact footprint without shifting the origin.
+	var can_place = building_placement.can_place_building(
+		building_id,
 		grid_pos,
-		grid_pos + Vector2(1, 0),
-		grid_pos + Vector2(-1, 0),
-		grid_pos + Vector2(0, 1),
-		grid_pos + Vector2(0, -1)
-	]
+		grid_size,
+		placed_buildings,
+		building_footprints,
+		land_system,
+		road_system
+	)
 
-	var found_position = false
-
-	for candidate in candidate_positions:
-		var can_place = building_placement.can_place_building(
-			building_id,
-			candidate,
-			grid_size,
-			placed_buildings,
-			building_footprints,
-			land_system,
-			road_system
+	if not can_place:
+		print(
+			"BUILDING PLACEMENT CANCELLED: Invalid footprint at ",
+			grid_pos,
+			" | Building: ",
+			building_id
 		)
 
-		if can_place:
-			grid_pos = candidate
-			found_position = true
-			break
-
-	if not found_position:
-		print("BUILDING PLACEMENT CANCELLED: No valid adjacent tile.")
 		selected_building_for_placement = ""
 		road_placement_direction = -1
 		update()
@@ -785,7 +777,6 @@ func _place_building(building_id):
 			print("BUILDING PLACEMENT FAILED: PAYMENT_FAILED")
 			return false
 
-	# Create building with ownership and business accounting data.
 	var new_building = {
 		"grid": grid_pos,
 		"id": building_id,
@@ -822,7 +813,7 @@ func _place_building(building_id):
 	print(
 		"BUILDING PLACED SUCCESSFULLY: ",
 		building_id,
-		" | ",
+		" | Origin: ",
 		grid_pos,
 		" | Cost: $",
 		building_cost

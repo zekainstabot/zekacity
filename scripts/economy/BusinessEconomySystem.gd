@@ -2,7 +2,6 @@ extends Reference
 
 # ZekaCity - Business Economy System
 # Godot 3.6
-# Final payroll interval: 10 minutes
 
 const PAYROLL_INTERVAL = 600.0
 
@@ -16,7 +15,6 @@ const BUSINESS_DATA = {
 	"factory": {"wage_per_worker": 55}
 }
 
-# برای آزمایش می‌توان این مقدار را موقتاً به 60 تغییر داد.
 var payroll_interval = PAYROLL_INTERVAL
 var elapsed = 0.0
 
@@ -77,6 +75,7 @@ func run_payroll(world):
 		)
 
 		var amount_to_pay = min(balance, total_due)
+
 		var paid = _pay_workers(
 			workers,
 			amount_to_pay,
@@ -113,8 +112,59 @@ func run_payroll(world):
 		" | Total unpaid: $", total_unpaid_wages
 	)
 
+	# Transfer remaining business money to the city treasury.
+	_transfer_business_surplus(world)
+
 	if world.save_system != null:
 		world.save_system.save_world(world)
+
+
+func _transfer_business_surplus(world):
+	if world.city_treasury == null:
+		return
+
+	var total_transferred = 0
+
+	for building_index in range(world.placed_buildings.size()):
+		var building = world.placed_buildings[building_index]
+		var building_id = str(building.get("id", ""))
+
+		if not BUSINESS_DATA.has(building_id):
+			continue
+
+		var balance = int(
+			building.get("business_balance", 0)
+		)
+
+		if balance <= 0:
+			continue
+
+		var accepted = world.city_treasury.add_money(balance)
+
+		if accepted <= 0:
+			continue
+
+		building["business_balance"] = balance - accepted
+		building["total_profit"] = int(
+			building.get("total_profit", 0)
+		) + accepted
+
+		world.placed_buildings[building_index] = building
+		total_transferred += accepted
+
+		print(
+			"BUSINESS SURPLUS TRANSFER | ",
+			building_id,
+			" | Transferred: $", accepted,
+			" | Remaining: $",
+			building["business_balance"]
+		)
+
+	print(
+		"BUSINESS SURPLUS TRANSFER COMPLETE",
+		" | Total transferred: $", total_transferred,
+		" | Treasury: $", world.city_treasury.get_balance()
+	)
 
 
 func _pay_workers(workers, amount, wage_per_worker):
