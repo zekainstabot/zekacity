@@ -379,12 +379,6 @@ func _ready():
 		"_on_BuildingActionMenu_id_pressed"
 	)
 
-	building_action_panel.connect(
-		"market_sell_requested",
-		self,
-		"_on_market_sell_requested"
-	)
-
 	# Create the demolition confirmation dialog.
 	building_action_dialog = ConfirmationDialog.new()
 	building_action_dialog.name = "BuildingActionDialog"
@@ -439,6 +433,13 @@ func _ready():
 	if save_loaded:
 		print("Previous city progress restored")
 
+	# Rebuild warehouse capacity using loaded buildings.
+	storage_system.sync_warehouses(placed_buildings)
+
+	# Restore building list in BuildingSystem.
+	if building_system != null:
+		building_system.set_buildings(placed_buildings)
+
 	# Rebuild residents after loading saved buildings.
 	if citizen_system != null:
 		citizen_system.sync_residents()
@@ -449,7 +450,6 @@ func _ready():
 		save_system.save_world(self)
 
 	update()
-
 
 # =========================================
 # ISOMETRIC GRID
@@ -987,54 +987,6 @@ func _on_BuildingActionMenu_id_pressed(id):
 			if building_action_menu != null:
 				building_action_menu.hide()
 				
-func _on_market_sell_requested(resource_id, amount):
-	if selected_building_index < 0:
-		return
-
-	if selected_building_index >= placed_buildings.size():
-		return
-
-	var building = placed_buildings[selected_building_index]
-
-	if str(building.get("id", "")) != "mineral_market":
-		return
-
-	var result = mineral_market_system.receive_from_municipal_storage(
-		resource_id,
-		amount,
-		resource_manager,
-		city_treasury
-	)
-
-	if not result.get("success", false):
-		print(
-			"MARKET TRANSFER FAILED: ",
-			result.get("error", "UNKNOWN_ERROR")
-		)
-		return
-
-	print(
-		"MARKET TRANSFER SUCCESS: ",
-		result["amount"],
-		" ",
-		result["product"],
-		" | Revenue: $",
-		result["revenue"],
-		" | Market stock: ",
-		result["stock"]
-	)
-
-	_update_treasury_label()
-	save_system.save_world(self)
-
-	building_action_panel.show_for_building(
-		"Mineral Market",
-		self,
-		"mineral_market"
-	)
-
-	update()
-
 
 # =========================================
 # BUILDING DEMOLITION
@@ -1085,17 +1037,15 @@ func _confirm_building_demolition():
 
 	save_system.save_world(self)
 
-	
-
 func _process(delta):
 	if save_system == null:
 		return
 
 	if business_economy_system != null:
-		business_economy_system.process_economy(
-			delta,
-			self
-		)
+		business_economy_system.process_economy(delta, self)
+
+	if mineral_market_system != null:
+		mineral_market_system.process_automatic_sales(delta, self)
 
 	if world_ui_controller != null:
 		world_ui_controller.update_land_purchase_areas()
@@ -1105,7 +1055,6 @@ func _process(delta):
 	if autosave_elapsed >= autosave_interval:
 		autosave_elapsed = 0.0
 		save_system.save_world(self)
-
 
 func _notification(what):
 	if save_system == null:

@@ -1,9 +1,7 @@
-
 extends Reference
 
-# ZekaCity - MineralMarketSystem.gd
-# Godot 3.6
-# مدیریت فروشگاه مصالح معدنی شهرداری
+const STORAGE_RESERVE = 50
+const MAX_SALES_PER_SECOND = 2.0
 
 const PRODUCTS = {
 	"stone": {
@@ -18,9 +16,16 @@ const PRODUCTS = {
 	}
 }
 
+# موجودی قدیمی بازار برای سازگاری با SaveSystem حفظ شده است.
 var stock = {
 	"stone": 0,
 	"iron_ore": 0
+}
+
+# سهمیه فروش هر ماده مستقل است.
+var sale_accumulators = {
+	"stone": 0.0,
+	"iron_ore": 0.0
 }
 
 
@@ -50,150 +55,133 @@ func can_supply(resource_id, amount):
 	if not PRODUCTS.has(resource_id):
 		return false
 
-	if amount <= 0:
-		return false
-
 	return get_stock(resource_id) >= int(amount)
 
 
+# فروش خودکار از موجودی ResourceManager
+func process_automatic_sales(delta, world):
+	if world == null:
+		return
 
-func receive_from_municipal_storage(
-	resource_id,
-	amount,
-	resource_manager,
-	city_treasury
-):
+	if world.resource_manager == null:
+		return
+
+	if delta <= 0:
+		return
+
+	var market_index = _find_mineral_market(world)
+
+	# بدون بازار معدنی هیچ فروشی انجام نمی‌شود.
+	if market_index == -1:
+		return
+
+	_process_resource_sale("stone", delta, world, market_index)
+	_process_resource_sale("iron_ore", delta, world, market_index)
+
+
+func _process_resource_sale(resource_id, delta, world, market_index):
 	if not PRODUCTS.has(resource_id):
-		return {
-			"success": false,
-			"error": "INVALID_PRODUCT"
-		}
+		return
 
-	amount = int(amount)
+	var current_amount = world.resource_manager.get_amount(resource_id)
+	var available = max(0, current_amount - STORAGE_RESERVE)
 
-	if amount <= 0:
-		return {
-			"success": false,
-			"error": "INVALID_AMOUNT"
-		}
+	# موجودی به حد ذخیره رسیده؛ سهمیه قبلی پاک شود.
+	if available <= 0:
+		sale_accumulators[resource_id] = 0.0
+		return
 
-	if resource_manager == null or city_treasury == null:
-		return {
-			"success": false,
-			"error": "SYSTEM_UNAVAILABLE"
-		}
+	sale_accumulators[resource_id] += delta * MAX_SALES_PER_SECOND
 
-	if resource_manager.get_amount(resource_id) < amount:
-		return {
-			"success": false,
-			"error": "NOT_ENOUGH_RESOURCES"
-		}
+	var amount_due = int(floor(sale_accumulators[resource_id]))
+	if amount_due <= 0:
+		return
 
-	# The treasury must be able to receive the full payment first.
-	var revenue = amount * get_price(resource_id)
+	var amount_to_sell = min(amount_due, available)
 
-	if city_treasury.get_capacity() - city_treasury.get_balance() < revenue:
-		return {
-			"success": false,
-			"error": "TREASURY_CAPACITY"
-		}
+	if amount_to_sell <= 0:
+		return
 
-	if not resource_manager.remove_resource(resource_id, amount):
-		return {
-			"success": false,
-			"error": "RESOURCE_TRANSFER_FAILED"
-		}
-
-	var accepted = city_treasury.add_money(revenue)
-
-	if accepted != revenue:
-		# Roll back the treasury and resource changes.
-		if accepted > 0:
-			city_treasury.spend(accepted)
-
-		resource_manager.add_resource(resource_id, amount)
-
-		return {
-			"success": false,
-			"error": "TREASURY_CAPACITY"
-		}
-
-	stock[resource_id] += amount
-
-	return {
-		"success": true,
-		"product": resource_id,
-		"amount": amount,
-		"revenue": revenue,
-		"stock": get_stock(resource_id),
-		"treasury_balance": city_treasury.get_balance()
-	}
-
-func sell_to_customer(resource_id, amount, customer_money, building):
-	if not PRODUCTS.has(resource_id):
-		return {"success": false, "error": "INVALID_PRODUCT"}
-
-	amount = int(amount)
-	customer_money = int(customer_money)
-
-	if amount <= 0:
-		return {"success": false, "error": "INVALID_AMOUNT"}
-
-	if typeof(building) != TYPE_DICTIONARY:
-		return {"success": false, "error": "INVALID_BUILDING"}
-
-	if str(building.get("id", "")) != "mineral_market":
-		return {"success": false, "error": "NOT_A_MINERAL_MARKET"}
-
-	if not can_supply(resource_id, amount):
-		return {"success": false, "error": "NOT_ENOUGH_STOCK"}
-
-	var total_cost = amount * get_sell_price(resource_id)
-
-	if customer_money < total_cost:
-		return {"success": false, "error": "CUSTOMER_CANNOT_AFFORD"}
-
-	stock[resource_id] -= amount
-
-	building["business_balance"] = int(
-		building.get("business_balance", 0)
-	) + total_cost
-
-	building["last_revenue"] = int(
-		building.get("last_revenue", 0)
-	) + total_cost
-
-	building["total_revenue"] = int(
-		building.get("total_revenue", 0)
-	) + total_cost
-
-	print(
-		"REAL MARKET SALE | Product: ", resource_id,
-		" | Quantity: ", amount,
-		" | Revenue: $", total_cost,
-		" | Business balance: $", building["business_balance"],
-		" | Remaining stock: ", stock[resource_id]
+	var sold = world.resource_manager.remove_resource(
+		resource_id,
+		amount_to_sell
 	)
 
+	if not sold:
+		return
+
+	# سهمیه فقط به اندازه فروش موفق مصرف می‌شود.
+	sale_accumulators[resource_id] -= amount_to_sell
+
+	var revenue = amount_to_sell * get_sell_price(resource_id)
+
+	_add_business_revenue(
+		world,
+		market_index,
+		revenue
+	)
+
+	# اگر موجودی به ذخیره ۵۰ رسید، سهمیه باقی‌مانده حذف شود.
+	if world.resource_manager.get_amount(resource_id) <= STORAGE_RESERVE:
+		sale_accumulators[resource_id] = 0.0
+
+
+func _find_mineral_market(world):
+	if not world.has_method("get"):
+		return -1
+
+	if world.get("placed_buildings") == null:
+		return -1
+
+	for i in range(world.placed_buildings.size()):
+		var building = world.placed_buildings[i]
+
+		if str(building.get("id", "")) == "mineral_market":
+			return i
+
+	return -1
+
+
+func _add_business_revenue(world, market_index, revenue):
+	if market_index < 0:
+		return
+
+	if market_index >= world.placed_buildings.size():
+		return
+
+	var building = world.placed_buildings[market_index]
+
+	var current_balance = int(building.get("business_balance", 0))
+	var current_total = int(building.get("total_revenue", 0))
+
+	building["business_balance"] = current_balance + revenue
+	building["last_revenue"] = revenue
+	building["total_revenue"] = current_total + revenue
+
+	world.placed_buildings[market_index] = building
+
+
+# فروش دستی غیرفعال است.
+func receive_from_municipal_storage(resource_manager, resource_id, amount, treasury):
 	return {
-		"success": true,
-		"product": resource_id,
-		"amount": amount,
-		"cost": total_cost,
-		"remaining_money": customer_money - total_cost,
-		"remaining_stock": get_stock(resource_id),
-		"business_balance": building["business_balance"]
+		"success": false,
+		"error": "MANUAL_SALE_DISABLED"
 	}
 
-func restore_stock(saved_stock):
-	if typeof(saved_stock) != TYPE_DICTIONARY:
+
+func sell_to_customer(resource_id, amount, building):
+	return {
+		"success": false,
+		"error": "MANUAL_SALE_DISABLED"
+	}
+
+
+func restore_stock(data):
+	if typeof(data) != TYPE_DICTIONARY:
 		return
 
 	for resource_id in stock.keys():
-		stock[resource_id] = max(
-			0,
-			int(saved_stock.get(resource_id, 0))
-		)
+		stock[resource_id] = int(data.get(resource_id, 0))
 
 
 func get_stock_data():
