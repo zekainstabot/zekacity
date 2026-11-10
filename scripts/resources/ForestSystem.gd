@@ -64,6 +64,10 @@ func _has_tree_at(tile):
 	return false
 
 
+func is_grid_blocked(grid_pos):
+	return _has_tree_at(grid_pos)
+
+
 func harvest_near(grid_pos, radius = 6):
 	var best_index = -1
 	var best_distance = 999999.0
