@@ -17,6 +17,7 @@ const BUSINESS_DATA = {
 
 var payroll_interval = PAYROLL_INTERVAL
 var elapsed = 0.0
+var payroll_rotation = 0
 
 
 func process_economy(delta, world):
@@ -171,22 +172,33 @@ func _pay_workers(workers, amount, wage_per_worker):
 	if workers.empty() or amount <= 0:
 		return 0
 
-	var remaining = amount
+	var remaining = int(amount)
 	var total_paid = 0
+	var start_index = payroll_rotation % workers.size()
 
-	for i in range(workers.size()):
-		if remaining <= 0:
+	# Pay arrears fairly across all workers. The previous implementation
+	# paid the first worker(s) first and capped each worker at one period's
+	# wage, which could leave old arrears unpaid indefinitely.
+	while remaining > 0:
+		var paid_this_round = false
+
+		for offset in range(workers.size()):
+			if remaining <= 0:
+				break
+
+			var worker_index = (start_index + offset) % workers.size()
+			var citizen = workers[worker_index]
+			citizen["wallet"] = int(
+				citizen.get("wallet", 0)
+			) + 1
+			workers[worker_index] = citizen
+
+			remaining -= 1
+			total_paid += 1
+			paid_this_round = true
+
+		if not paid_this_round:
 			break
 
-		var share = min(wage_per_worker, remaining)
-		var citizen = workers[i]
-
-		citizen["wallet"] = int(
-			citizen.get("wallet", 0)
-		) + share
-
-		workers[i] = citizen
-		total_paid += share
-		remaining -= share
-
+	payroll_rotation = (start_index + 1) % workers.size()
 	return total_paid
