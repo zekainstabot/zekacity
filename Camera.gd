@@ -58,7 +58,7 @@ func _input(event):
 
 	elif event is InputEventMouseMotion:
 		if dragging:
-			if _is_over_construction_panel(event.position):
+			if _is_over_ui(event.position):
 				dragging = false
 				return
 
@@ -67,7 +67,7 @@ func _input(event):
 	# Android touch controls
 	elif event is InputEventScreenTouch:
 		if event.pressed:
-			if _is_over_construction_panel(event.position):
+			if _is_over_ui(event.position):
 				ui_touch_points[event.index] = true
 				dragging = false
 				return
@@ -98,7 +98,7 @@ func _input(event):
 		if not touch_points.has(event.index):
 			return
 
-		if _is_over_construction_panel(event.position):
+		if _is_over_ui(event.position):
 			ui_touch_points[event.index] = true
 			touch_points.erase(event.index)
 			dragging = false
