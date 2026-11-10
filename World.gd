@@ -729,6 +729,9 @@ func _place_building(building_id):
 					"BUILDING PLACEMENT CANCELLED: MOUNTAIN_OCCUPIED at ",
 					tile
 				)
+				selected_building_for_placement = ""
+				road_placement_direction = -1
+				update()
 				return false
 
 	var StorageDefinitions = load(
