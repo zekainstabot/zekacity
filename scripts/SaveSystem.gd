@@ -26,6 +26,7 @@ func save_world(world):
 		"mineral_market_sale_accumulators": {},
 		"roads": [],
 		"mountains": [],
+		"forests": [],
 		"mines": [],
 		"citizens": []
 	}
@@ -164,6 +165,11 @@ func save_world(world):
 					"extracted": int(mine.get("extracted", 0)),
 					"elapsed": float(mine.get("elapsed", 0.0))
 				})
+
+	# Forest trees
+	var forest_system = world.get_node_or_null("../ForestSystem")
+	if forest_system != null:
+		data["forests"] = forest_system.get_save_data()
 
 	# شهروندها
 	if world.citizen_system != null:
@@ -420,6 +426,11 @@ func load_world(world):
 
 		mountain_system.update()
 
+	# Restore the saved forest instead of generating a new tree layout.
+	var forest_system = world.get_node_or_null("../ForestSystem")
+	if forest_system != null and data.has("forests"):
+		forest_system.load_data(data.get("forests", []))
+
 	# بازسازی ظرفیت انبارها
 	if world.storage_system != null:
 		world.storage_system.sync_warehouses(
@@ -519,6 +530,7 @@ func _read_valid_save(path):
 		"owned_tiles",
 		"roads",
 		"mountains",
+		"forests",
 		"mines",
 		"citizens"
 	]
@@ -560,6 +572,12 @@ func _read_valid_save(path):
 		if typeof(road) != TYPE_DICTIONARY:
 			return {}
 		if not _is_valid_vector_data(road.get("grid", null)):
+			return {}
+
+	for tree in parsed.get("forests", []):
+		if typeof(tree) != TYPE_DICTIONARY:
+			return {}
+		if not _is_valid_vector_data(tree.get("grid", null)):
 			return {}
 
 	for mountain in parsed.get("mountains", []):
