@@ -1,21 +1,32 @@
 extends Node2D
 
 # ZekaCity - ForestSystem.gd (Godot 3.6)
-# Procedural forest patches. Trees occupy map tiles and can be harvested by
-# nearby woodcutters; saved tree positions are restored between sessions.
+# Each tree is a separate depth-sorted CanvasItem so buildings can pass
+# in front of or behind individual trees according to isometric ground depth.
 
 var world = null
 var trees = []
 var rng = RandomNumberGenerator.new()
 var map_center = Vector2(600, 130)
+var tree_visuals_root = null
+
 
 func initialize(world_node):
 	world = world_node
 	rng.randomize()
+	_ensure_visual_root()
 	if trees.empty():
 		_generate_forest()
-	update()
+	_refresh_tree_visuals()
 	print("ForestSystem initialized | Trees: ", trees.size())
+
+
+func _ensure_visual_root():
+	if tree_visuals_root != null and is_instance_valid(tree_visuals_root):
+		return
+	tree_visuals_root = Node2D.new()
+	tree_visuals_root.name = "TreeVisuals"
+	add_child(tree_visuals_root)
 
 
 func _generate_forest():
@@ -80,7 +91,7 @@ func harvest_near(grid_pos, radius = 6):
 	if best_index == -1:
 		return false
 	trees.remove(best_index)
-	update()
+	_refresh_tree_visuals()
 	return true
 
 
@@ -96,7 +107,7 @@ func restore_tree_near(grid_pos, radius = 6):
 				best_grid = tile
 	if best_grid.x >= 0:
 		trees.append({"id": trees.size() + 1, "grid": best_grid, "health": 1})
-		update()
+		_refresh_tree_visuals()
 		return true
 	return false
 
@@ -135,24 +146,25 @@ func load_data(data):
 			"grid": tile,
 			"health": max(1, int(item.get("health", 1)))
 		})
-	update()
+	_refresh_tree_visuals()
 
 
-func _draw():
+func _refresh_tree_visuals():
+	_ensure_visual_root()
+	for child in tree_visuals_root.get_children():
+		tree_visuals_root.remove_child(child)
+		child.free()
+
 	if world == null:
 		return
+
 	for tree in trees:
-		var pos = world.grid_to_screen(tree["grid"], map_center)
-		var sway = float(int(tree.get("id", 0)) % 3) * 2.0
-		# Trunk
-		draw_rect(Rect2(pos + Vector2(-3, -15), Vector2(6, 18)), Color(0.34, 0.20, 0.10))
-		# Layered pine canopy
-		draw_colored_polygon(PoolVector2Array([
-			pos + Vector2(-18 + sway, -12), pos + Vector2(0, -48),
-			pos + Vector2(18 + sway, -12)
-		]), Color(0.10, 0.36, 0.19))
-		draw_colored_polygon(PoolVector2Array([
-			pos + Vector2(-14, -25), pos + Vector2(0, -58),
-			pos + Vector2(14, -25)
-		]), Color(0.16, 0.48, 0.24))
-		draw_circle(pos + Vector2(-5, -38), 3.0, Color(0.34, 0.62, 0.31))
+		var visual = Node2D.new()
+		visual.name = "Tree_" + str(tree.get("id", 0))
+		visual.position = world.grid_to_screen(tree["grid"], map_center)
+		# Same projected ground-depth scale used by BuildingVisual.
+		visual.z_as_relative = false
+		visual.z_index = int(clamp(round(visual.position.y), -4096, 4096))
+		visual.set_script(load("res://scripts/resources/ForestTreeVisual.gd"))
+		visual.set("tree_id", int(tree.get("id", 0)))
+		tree_visuals_root.add_child(visual)
