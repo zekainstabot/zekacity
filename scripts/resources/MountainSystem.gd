@@ -54,7 +54,7 @@ func initialize(world_node, treasury, ui_node = null):
 	).new()
 
 	_generate_mountains()
-	update()
+	_refresh_mountain_visuals()
 
 	print("MountainSystem initialized")
 	print("Mountains generated: ", mountains.size())
@@ -171,9 +171,11 @@ func _can_place_mountain(origin):
 func _get_mountain_draw_data(mountain):
 	# Center the mountain over the full 3x3 isometric footprint.
 	var origin = mountain["origin"]
+	# Match the average tile-center used by building footprints:
+	# a 3x3 footprint is centered at origin + (1, 1), not (1.5, 1.5).
 	var center_grid = origin + Vector2(
-		float(mountain_size) / 2.0,
-		float(mountain_size) / 2.0
+		(float(mountain_size) - 1.0) / 2.0,
+		(float(mountain_size) - 1.0) / 2.0
 	)
 
 	var center = world.grid_to_screen(center_grid, map_center)
@@ -251,53 +253,33 @@ func get_unbuilt_mountain_at_position(mouse_pos, resource_id):
 	return ""
 
 
-func _draw():
-	if world == null or mountain_texture == null:
+func _refresh_mountain_visuals():
+	for child in get_children():
+		if child.name.begins_with("MountainVisual_"):
+			remove_child(child)
+			child.free()
+
+	if world == null:
 		return
 
 	for mountain_id in mountains.keys():
 		var mountain = mountains[mountain_id]
-		var draw_data = _get_mountain_draw_data(mountain)
+		var data = _get_mountain_draw_data(mountain)
+		var visual = Node2D.new()
+		visual.name = "MountainVisual_" + str(mountain_id)
+		visual.position = data["ground_center"]
+		visual.z_as_relative = false
+		visual.z_index = int(clamp(round(visual.position.y), -4096, 4096))
+		visual.set_script(load("res://scripts/resources/MountainVisual.gd"))
+		visual.set("mountain_texture", mountain_texture)
+		visual.set("mine_texture", iron_mine_texture if str(mountain["resource_id"]) == "iron_ore" else stone_mine_texture)
+		visual.set("mine_built", bool(mountain["mine_built"]))
+		visual.set("pickaxe_position", _get_pickaxe_position(mountain) - data["ground_center"])
+		visual.set("draw_size", data["draw_size"])
+		visual.set("mine_position", world.grid_to_screen(mountain["mine_point"], map_center) - data["ground_center"])
+		add_child(visual)
 
-		var draw_pos = draw_data["draw_pos"]
-		var draw_size = draw_data["draw_size"]
 
-		# Draw mountain image.
-		draw_texture_rect(
-			mountain_texture,
-			Rect2(draw_pos, draw_size),
-			false
-		)
-
-		var is_iron = str(mountain["resource_id"]) == "iron_ore"
-
-		if mountain["mine_built"]:
-			var mine_texture = stone_mine_texture
-
-			if is_iron:
-				mine_texture = iron_mine_texture
-
-			_draw_mine_texture(
-				mountain,
-				mine_texture
-			)
-		else:
-			# Show the pickaxe marker before construction.
-			var pickaxe_pos = _get_pickaxe_position(mountain)
-
-			draw_line(
-				pickaxe_pos + Vector2(-5, 7),
-				pickaxe_pos + Vector2(6, -7),
-				Color(0.40, 0.23, 0.12),
-				4.0
-			)
-
-			draw_line(
-				pickaxe_pos + Vector2(-10, -6),
-				pickaxe_pos + Vector2(9, -9),
-				Color(0.75, 0.78, 0.82),
-				5.0
-			)
 
 func _draw_mine_texture(mountain, mine_texture):
 	if mine_texture == null:
@@ -382,6 +364,7 @@ func build_mine(mountain_id):
 		return false
 
 	mountains[mountain_id]["mine_built"] = true
+	_refresh_mountain_visuals()
 	update()
 
 	return true

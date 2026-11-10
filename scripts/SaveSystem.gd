@@ -5,7 +5,10 @@ extends Reference
 # ذخیره و بارگذاری پیشرفت شهر
 
 const SAVE_PATH = "user://zeka_city_save.json"
+const TEMP_SAVE_PATH = "user://zeka_city_save.tmp"
+const BACKUP_SAVE_PATH = "user://zeka_city_save.backup.json"
 const SAVE_VERSION = 1
+const BuildingData = preload("res://scripts/BuildingData.gd")
 
 
 func save_world(world):
@@ -24,6 +27,7 @@ func save_world(world):
 		"mineral_market_sale_accumulators": {},
 		"roads": [],
 		"mountains": [],
+		"forests": [],
 		"mines": [],
 		"citizens": []
 	}
@@ -163,20 +167,20 @@ func save_world(world):
 					"elapsed": float(mine.get("elapsed", 0.0))
 				})
 
+	# Forest trees
+	var forest_system = world.get_node_or_null("../ForestSystem")
+	if forest_system != null:
+		data["forests"] = forest_system.get_save_data()
+
 	# شهروندها
 	if world.citizen_system != null:
 		data["citizens"] = world.citizen_system.get_save_data()
 
-	# نوشتن فایل ذخیره
-	var file = File.new()
-	var error = file.open(SAVE_PATH, File.WRITE)
-
-	if error != OK:
-		push_error("SaveSystem: Could not open save file")
+	# نوشتن امن: ابتدا فایل موقت ساخته و بررسی می‌شود.
+	# فایل ذخیره قبلی تا موفقیت کامل نوشتن حفظ خواهد شد.
+	if not _write_save_file_atomic(data):
+		push_error("SaveSystem: Atomic save failed; previous save was preserved")
 		return false
-
-	file.store_string(to_json(data))
-	file.close()
 
 	print("CITY SAVED SUCCESSFULLY")
 	return true
@@ -186,27 +190,18 @@ func load_world(world):
 	if world == null:
 		return false
 
-	var file = File.new()
+	var data = _read_valid_save(SAVE_PATH)
 
-	if not file.file_exists(SAVE_PATH):
-		print("SaveSystem: No previous save found")
-		return false
+	if data.empty():
+		push_warning("SaveSystem: Main save is invalid; trying backup")
+		data = _read_valid_save(BACKUP_SAVE_PATH)
 
-	if file.open(SAVE_PATH, File.READ) != OK:
-		push_error("SaveSystem: Could not read save file")
-		return false
-
-	var save_text = file.get_as_text()
-	file.close()
-
-	var data = parse_json(save_text)
-
-	if typeof(data) != TYPE_DICTIONARY:
-		push_error("SaveSystem: Save file is invalid")
-		return false
-
-	if int(data.get("version", 0)) != SAVE_VERSION:
-		push_error("SaveSystem: Unsupported save version")
+	if data.empty():
+		var file_check = File.new()
+		if file_check.file_exists(SAVE_PATH) or file_check.file_exists(BACKUP_SAVE_PATH):
+			push_error("SaveSystem: No valid save or backup could be loaded")
+		else:
+			print("SaveSystem: No previous save found")
 		return false
 
 	# بازیابی پول شخصی بازیکن
@@ -430,7 +425,15 @@ func load_world(world):
 						)
 					}
 
+		# Rebuild individual depth-sorted mountain visuals from the
+		# restored save data (the initial random mountain layout is obsolete).
+		mountain_system._refresh_mountain_visuals()
 		mountain_system.update()
+
+	# Restore the saved forest instead of generating a new tree layout.
+	var forest_system = world.get_node_or_null("../ForestSystem")
+	if forest_system != null and data.has("forests"):
+		forest_system.load_data(data.get("forests", []))
 
 	# بازسازی ظرفیت انبارها
 	if world.storage_system != null:
@@ -450,6 +453,219 @@ func load_world(world):
 	world.update()
 
 	print("CITY LOADED SUCCESSFULLY")
+	return true
+
+
+# --------------------------------------------------
+# SAFE SAVE / RECOVERY
+# --------------------------------------------------
+
+func _write_save_file_atomic(data):
+	var file = File.new()
+	var error = file.open(TEMP_SAVE_PATH, File.WRITE)
+
+	if error != OK:
+		push_error("SaveSystem: Could not open temporary save file: " + str(error))
+		return false
+
+	file.store_string(to_json(data))
+	file.flush()
+	var write_error = file.get_error()
+	file.close()
+
+	if write_error != OK:
+		var cleanup = Directory.new()
+		cleanup.remove(TEMP_SAVE_PATH)
+		push_error("SaveSystem: Temporary save write failed: " + str(write_error))
+		return false
+
+	# Rotate the backup only when a main save exists. If the main file
+	# is missing but a backup remains, never delete that last good copy.
+	var directory = Directory.new()
+	if directory.file_exists(SAVE_PATH):
+		if directory.file_exists(BACKUP_SAVE_PATH):
+			var remove_error = directory.remove(BACKUP_SAVE_PATH)
+			if remove_error != OK:
+				directory.remove(TEMP_SAVE_PATH)
+				push_error("SaveSystem: Could not rotate backup: " + str(remove_error))
+				return false
+
+		var backup_error = directory.rename(SAVE_PATH, BACKUP_SAVE_PATH)
+		if backup_error != OK:
+			directory.remove(TEMP_SAVE_PATH)
+			push_error("SaveSystem: Could not preserve previous save: " + str(backup_error))
+			return false
+
+	var replace_error = directory.rename(TEMP_SAVE_PATH, SAVE_PATH)
+	if replace_error != OK:
+		# Restore the previous save if the new file could not be installed.
+		if directory.file_exists(BACKUP_SAVE_PATH) and not directory.file_exists(SAVE_PATH):
+			directory.rename(BACKUP_SAVE_PATH, SAVE_PATH)
+
+		directory.remove(TEMP_SAVE_PATH)
+		push_error("SaveSystem: Could not install new save: " + str(replace_error))
+		return false
+
+	return true
+
+
+func _read_valid_save(path):
+	var file = File.new()
+
+	if not file.file_exists(path):
+		return {}
+
+	if file.open(path, File.READ) != OK:
+		return {}
+
+	var save_text = file.get_as_text()
+	file.close()
+
+	var parsed = parse_json(save_text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {}
+
+	if int(parsed.get("version", 0)) != SAVE_VERSION:
+		return {}
+
+	# Validate collection types before load_world mutates the running city.
+	var array_fields = [
+		"placed_buildings",
+		"owned_tiles",
+		"roads",
+		"mountains",
+		"forests",
+		"mines",
+		"citizens"
+	]
+
+	for field in array_fields:
+		if parsed.has(field) and typeof(parsed[field]) != TYPE_ARRAY:
+			return {}
+
+	var dictionary_fields = [
+		"treasury",
+		"resources",
+		"mineral_market",
+		"mineral_market_sale_accumulators"
+	]
+
+	for field in dictionary_fields:
+		if parsed.has(field) and typeof(parsed[field]) != TYPE_DICTIONARY:
+			return {}
+
+	var grid_size = int(parsed.get("grid_size", 25))
+	if grid_size < 1 or grid_size > 256:
+		return {}
+
+	# Reject structurally damaged records before they can be converted
+	# into Vector2.ZERO and accidentally place data at the map origin.
+	for building in parsed.get("placed_buildings", []):
+		if typeof(building) != TYPE_DICTIONARY:
+			return {}
+		var building_id = str(building.get("id", "")).strip_edges()
+		if building_id == "" or not BuildingData.BUILDING_LAYOUTS.has(building_id):
+			return {}
+		if not _is_valid_vector_data(building.get("grid", null)):
+			return {}
+		var building_grid = _data_to_vector(building["grid"])
+		var layout = BuildingData.BUILDING_LAYOUTS[building_id]
+		if not _is_valid_building_grid(building_grid, layout, grid_size):
+			return {}
+
+	for tile in parsed.get("owned_tiles", []):
+		if not _is_valid_grid_vector(tile, grid_size):
+			return {}
+
+	for road in parsed.get("roads", []):
+		if typeof(road) != TYPE_DICTIONARY:
+			return {}
+		if not _is_valid_grid_vector(road.get("grid", null), grid_size):
+			return {}
+
+	for tree in parsed.get("forests", []):
+		if typeof(tree) != TYPE_DICTIONARY:
+			return {}
+		if not _is_valid_grid_vector(tree.get("grid", null), grid_size):
+			return {}
+		if tree.has("remaining") and float(tree.get("remaining", 0.0)) < 0.0:
+			return {}
+
+	for mountain in parsed.get("mountains", []):
+		if typeof(mountain) != TYPE_DICTIONARY:
+			return {}
+		if str(mountain.get("id", "")).strip_edges() == "":
+			return {}
+		if not _is_valid_vector_data(mountain.get("origin", null)):
+			return {}
+		if not _is_valid_vector_data(mountain.get("mine_point", null)):
+			return {}
+		if not _is_valid_grid_vector(mountain.get("mine_point", null), grid_size):
+			return {}
+		if not _is_valid_building_grid(_data_to_vector(mountain["origin"]), [3, 3], grid_size):
+			return {}
+
+	for mine in parsed.get("mines", []):
+		if typeof(mine) != TYPE_DICTIONARY:
+			return {}
+		if str(mine.get("id", "")).strip_edges() == "":
+			return {}
+
+	for citizen in parsed.get("citizens", []):
+		if typeof(citizen) != TYPE_DICTIONARY:
+			return {}
+		if str(citizen.get("id", "")).strip_edges() == "":
+			return {}
+		if not _is_valid_grid_vector(citizen.get("home_grid", null), grid_size):
+			return {}
+		if not _is_valid_grid_vector(citizen.get("grid_pos", null), grid_size):
+			return {}
+		for vector_field in ["target_grid", "previous_grid", "work_grid"]:
+			if citizen.has(vector_field) and not _is_valid_grid_vector(citizen[vector_field], grid_size):
+				return {}
+
+	return parsed
+
+
+func _is_valid_vector_data(value):
+	if typeof(value) != TYPE_DICTIONARY:
+		return false
+
+	if not value.has("x") or not value.has("y"):
+		return false
+
+	var x_type = typeof(value["x"])
+	var y_type = typeof(value["y"])
+
+	var numeric_types = [TYPE_INT, TYPE_REAL]
+	return x_type in numeric_types and y_type in numeric_types
+
+
+func _is_valid_grid_vector(value, grid_size):
+	if not _is_valid_vector_data(value):
+		return false
+
+	var x = float(value["x"])
+	var y = float(value["y"])
+	return (
+		x == int(x)
+		and y == int(y)
+		and x >= 0
+		and y >= 0
+		and x < grid_size
+		and y < grid_size
+	)
+
+
+func _is_valid_building_grid(origin, layout, grid_size):
+	if origin.x != int(origin.x) or origin.y != int(origin.y):
+		return false
+	if origin.x < 0 or origin.y < 0:
+		return false
+	if origin.x + int(layout[0]) > grid_size:
+		return false
+	if origin.y + int(layout[1]) > grid_size:
+		return false
 	return true
 
 

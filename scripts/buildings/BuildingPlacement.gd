@@ -16,6 +16,13 @@ func can_place_building(
 	land_system,
 	road_system
 ):
+	if (
+		footprints == null
+		or land_system == null
+		or str(building_id).strip_edges() == ""
+	):
+		return false
+
 	if not footprints.fits_inside_map(
 		building_id,
 		origin,
@@ -36,9 +43,14 @@ func can_place_building(
 			return false
 
 		for building in placed_buildings:
+			if typeof(building) != TYPE_DICTIONARY:
+				continue
+
+			var existing_id = str(building.get("id", ""))
+			var existing_grid = building.get("grid", Vector2(-1, -1))
 			var existing_tiles = footprints.get_occupied_tiles(
-				building["id"],
-				building["grid"]
+				existing_id,
+				existing_grid
 			)
 
 			if tile in existing_tiles:
@@ -56,6 +68,13 @@ func get_placement_error(
 	land_system,
 	road_system
 ):
+	if (
+		footprints == null
+		or land_system == null
+		or str(building_id).strip_edges() == ""
+	):
+		return "INVALID_INPUT"
+
 	if not footprints.fits_inside_map(
 		building_id,
 		origin,
@@ -76,9 +95,14 @@ func get_placement_error(
 			return "ROAD_OCCUPIED"
 
 		for building in placed_buildings:
+			if typeof(building) != TYPE_DICTIONARY:
+				continue
+
+			var existing_id = str(building.get("id", ""))
+			var existing_grid = building.get("grid", Vector2(-1, -1))
 			var existing_tiles = footprints.get_occupied_tiles(
-				building["id"],
-				building["grid"]
+				existing_id,
+				existing_grid
 			)
 
 			if tile in existing_tiles:

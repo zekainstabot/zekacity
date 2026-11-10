@@ -3,45 +3,20 @@ extends Reference
 # ZekaCity - BuildingFootprints.gd
 # Godot 3.6
 
-var footprints = {
-	"small_house": Vector2(1, 1),
-	"normal_house": Vector2(2, 2),
-	"low_apartment": Vector2(2, 2),
-	"high_apartment": Vector2(3, 2),
-	"residential_tower": Vector2(3, 3),
+const BuildingData = preload("res://scripts/BuildingData.gd")
 
-	"grocery_store": Vector2(2, 2),
-	"bakery": Vector2(2, 2),
-	"restaurant": Vector2(2, 2),
-	"office": Vector2(2, 2),
-	"shopping_mall": Vector2(4, 3),
-	"factory": Vector2(3, 3),
-	"mineral_market": Vector2(2, 2),
+var footprints = {}
 
-	"water_tower": Vector2(2, 2),
-	"power_station": Vector2(3, 3),
-	"sewage_plant": Vector2(3, 3),
-	"waste_facility": Vector2(3, 3),
 
-	"school": Vector2(3, 2),
-	"university": Vector2(4, 3),
-	"clinic": Vector2(2, 2),
-	"hospital": Vector2(3, 3),
+func _init():
+	for building_id in BuildingData.BUILDING_LAYOUTS.keys():
+		var dimensions = BuildingData.BUILDING_LAYOUTS[building_id]
+		if typeof(dimensions) == TYPE_ARRAY and dimensions.size() == 2:
+			footprints[building_id] = Vector2(
+				int(dimensions[0]),
+				int(dimensions[1])
+			)
 
-	"police_station": Vector2(2, 2),
-	"fire_station": Vector2(2, 2),
-	"city_hall": Vector2(3, 3),
-
-	"small_warehouse": Vector2(2, 2),
-	"medium_warehouse": Vector2(3, 2),
-	"large_warehouse": Vector2(3, 3),
-	"huge_warehouse": Vector2(4, 3),
-
-	"small_park": Vector2(2, 2),
-	"playground": Vector2(2, 2),
-	"sports_center": Vector2(3, 3),
-	"cultural_center": Vector2(3, 2)
-}
 
 
 func get_footprint(building_id):

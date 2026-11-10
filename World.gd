@@ -30,7 +30,7 @@ var save_system = preload(
 ).new()
 
 var autosave_elapsed = 0.0
-var autosave_interval = 600.0
+var autosave_interval = 60.0
 
 var business_economy_system = preload(
 	"res://scripts/economy/BusinessEconomySystem.gd"
@@ -170,6 +170,9 @@ var building_names = {
 	"shopping_mall": "Shopping Mall",
 	"factory": "Factory",
 	"mineral_market": "Mineral Market",
+	"woodcutter": "Woodcutter",
+	"sawmill": "Sawmill",
+	"carpenter": "Carpentry Workshop",
 	"water_tower": "Water Tower",
 	"power_station": "Power Station",
 	"sewage_plant": "Sewage Plant",
@@ -296,6 +299,12 @@ func _ready():
 			city_treasury,
 			ui
 		)
+
+	var forest_system = get_node_or_null("../ForestSystem")
+	if forest_system == null:
+		push_error("ForestSystem node NOT FOUND")
+	else:
+		forest_system.initialize(self)
 
 	submenu_menu = PopupMenu.new()
 	submenu_menu.name = "BuildingSubmenu"
@@ -473,7 +482,14 @@ func get_tile_polygon(pos):
 
 func is_tile_occupied(grid_pos):
 	for building in placed_buildings:
-		if building["grid"] == grid_pos:
+		var building_id = str(building.get("id", ""))
+		var origin = building.get("grid", Vector2.ZERO)
+		var occupied_tiles = building_footprints.get_occupied_tiles(
+			building_id,
+			origin
+		)
+
+		if grid_pos in occupied_tiles:
 			return true
 
 	return false
@@ -503,6 +519,80 @@ func _draw():
 		selected_x,
 		selected_y
 	)
+
+	_draw_building_placement_preview(center)
+
+
+func _get_building_placement_error(building_id, origin):
+	var road_system = get_node_or_null("../RoadSystem")
+	var mountain_system = get_node_or_null("../MountainSystem")
+	var forest_system = get_node_or_null("../ForestSystem")
+
+	var error = building_placement.get_placement_error(
+		building_id,
+		origin,
+		grid_size,
+		placed_buildings,
+		building_footprints,
+		land_system,
+		road_system
+	)
+
+	if error != "OK":
+		return error
+
+	for tile in building_footprints.get_occupied_tiles(building_id, origin):
+		if mountain_system != null and mountain_system.is_grid_blocked(tile):
+			return "MOUNTAIN_OCCUPIED"
+
+		if forest_system != null and forest_system.is_grid_blocked(tile):
+			return "FOREST_OCCUPIED"
+
+	return "OK"
+
+
+func _draw_building_placement_preview(center):
+	if selected_building_for_placement == "":
+		return
+
+	var origin = Vector2(selected_x, selected_y)
+	var error = _get_building_placement_error(
+		selected_building_for_placement,
+		origin
+	)
+	var valid = error == "OK"
+	var fill_color = Color(0.15, 0.9, 0.35, 0.28)
+	var border_color = Color(0.25, 1.0, 0.45, 0.95)
+
+	if not valid:
+		fill_color = Color(0.95, 0.12, 0.12, 0.30)
+		border_color = Color(1.0, 0.22, 0.18, 1.0)
+
+	var tiles = building_footprints.get_occupied_tiles(
+		selected_building_for_placement,
+		origin
+	)
+
+	for tile in tiles:
+		var tile_center = grid_to_screen(tile, center)
+		var diamond = PoolVector2Array([
+			tile_center + Vector2(0, -tile_height / 2.0),
+			tile_center + Vector2(tile_width / 2.0, 0),
+			tile_center + Vector2(0, tile_height / 2.0),
+			tile_center + Vector2(-tile_width / 2.0, 0)
+		])
+		draw_colored_polygon(diamond, fill_color)
+		for edge_index in range(diamond.size()):
+			var next_index = (edge_index + 1) % diamond.size()
+			draw_line(
+				diamond[edge_index],
+				diamond[next_index],
+				border_color,
+				2.0,
+				true
+			)
+
+
 
 func _create_building_visual(index):
 	if building_visuals_root == null:
@@ -585,7 +675,10 @@ func _draw_building(building_id, grid_pos, center):
 		"office",
 		"shopping_mall",
 		"factory",
-		"mineral_market"
+		"mineral_market",
+		"woodcutter",
+		"sawmill",
+		"carpenter"
 	]:
 		commercial_buildings.draw_building(
 			self,
@@ -685,23 +778,20 @@ func _place_building(building_id):
 	var grid_pos = Vector2(selected_x, selected_y)
 	var road_system = get_node_or_null("../RoadSystem")
 
-	# Validate the exact footprint without shifting the origin.
-	var can_place = building_placement.can_place_building(
+	# Use the same complete validator as the live placement preview.
+	var placement_error = _get_building_placement_error(
 		building_id,
-		grid_pos,
-		grid_size,
-		placed_buildings,
-		building_footprints,
-		land_system,
-		road_system
+		grid_pos
 	)
 
-	if not can_place:
+	if placement_error != "OK":
 		print(
 			"BUILDING PLACEMENT CANCELLED: Invalid footprint at ",
 			grid_pos,
 			" | Building: ",
-			building_id
+			building_id,
+			" | Reason: ",
+			placement_error
 		)
 
 		selected_building_for_placement = ""
@@ -852,8 +942,30 @@ func _confirm_place_road():
 
 	var grid_pos = Vector2(selected_x, selected_y)
 
+	if not land_system.is_inside_map(grid_pos):
+		print("Cannot build a road outside the map: ", grid_pos)
+		return
+
+	if not land_system.is_owned(grid_pos):
+		print("Cannot build a road on unowned land: ", grid_pos)
+		return
+
 	if is_tile_occupied(grid_pos):
-		print("Cannot build a road on a building tile: ", grid_pos)
+		print("Cannot build a road on a building footprint tile: ", grid_pos)
+		return
+
+	var mountain_system = get_node_or_null("../MountainSystem")
+	if mountain_system != null and mountain_system.is_grid_blocked(grid_pos):
+		print("Cannot build a road on a mountain tile: ", grid_pos)
+		return
+
+	var forest_system = get_node_or_null("../ForestSystem")
+	if forest_system != null and forest_system.is_grid_blocked(grid_pos):
+		print("Cannot build a road through a living forest tile: ", grid_pos)
+		return
+
+	if road_system.has_road(grid_pos):
+		print("A road already exists on this tile: ", grid_pos)
 		return
 
 	var added = road_system.add_road(
@@ -1032,11 +1144,28 @@ func _process(delta):
 	if save_system == null:
 		return
 
+	if selected_building_for_placement != "":
+		var hovered_tile = land_selection.get_selected_tile(
+			get_local_mouse_position(),
+			Vector2(600, 130),
+			grid_size,
+			tile_width,
+			tile_height
+		)
+		if hovered_tile.x >= 0:
+			var next_x = int(hovered_tile.x)
+			var next_y = int(hovered_tile.y)
+			if next_x != selected_x or next_y != selected_y:
+				selected_x = next_x
+				selected_y = next_y
+				update()
+
 	if business_economy_system != null:
 		business_economy_system.process_economy(delta, self)
 
 	if mineral_market_system != null:
 		mineral_market_system.process_automatic_sales(delta, self)
+		mineral_market_system.process_market_supply(delta, self)
 
 	if world_ui_controller != null:
 		world_ui_controller.update_land_purchase_areas()
