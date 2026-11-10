@@ -22,6 +22,13 @@ func _draw():
 	var width = max(viewport_size.x, 640.0)
 	var height = max(viewport_size.y, 480.0)
 
+	# Draw the backdrop on this parent so it stays behind the UI.
+	draw_rect(
+		Rect2(Vector2.ZERO, viewport_size),
+		Color(0.025, 0.055, 0.105, 1.0),
+		true
+	)
+
 	# Subtle isometric grid in the background.
 	var grid_color = Color(0.18, 0.48, 0.56, 0.12)
 	var spacing = 58.0
@@ -139,14 +146,6 @@ func _process(_delta):
 
 
 func _build_loading_screen():
-	# Deep blue background.
-	var background = ColorRect.new()
-	background.color = Color(0.025, 0.055, 0.105, 1.0)
-	background.anchor_right = 1.0
-	background.anchor_bottom = 1.0
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(background)
-
 	var center = CenterContainer.new()
 	center.anchor_right = 1.0
 	center.anchor_bottom = 1.0
