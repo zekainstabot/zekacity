@@ -11,47 +11,48 @@ func _draw():
 		Color(0.065, 0.19, 0.25, 0.9)
 	]
 
-	# Distant skyline.
-	var buildings = [
-		Rect2(Vector2(25, horizon - 105), Vector2(65, 105)),
-		Rect2(Vector2(105, horizon - 155), Vector2(82, 155)),
-		Rect2(Vector2(205, horizon - 85), Vector2(58, 85)),
-		Rect2(Vector2(285, horizon - 190), Vector2(90, 190)),
-		Rect2(Vector2(390, horizon - 125), Vector2(72, 125)),
-		Rect2(Vector2(490, horizon - 165), Vector2(86, 165)),
-		Rect2(Vector2(600, horizon - 95), Vector2(66, 95)),
-		Rect2(Vector2(690, horizon - 210), Vector2(94, 210)),
-		Rect2(Vector2(810, horizon - 120), Vector2(70, 120)),
-		Rect2(Vector2(900, horizon - 175), Vector2(88, 175)),
-		Rect2(Vector2(1010, horizon - 100), Vector2(65, 100)),
-		Rect2(Vector2(1090, horizon - 145), Vector2(82, 145))
-	]
+	# Build a skyline that adapts to wide and narrow desktop windows.
+	var x = -35.0
+	var index = 0
 
-	for i in range(buildings.size()):
-		var rect = buildings[i]
-		draw_rect(rect, colors[i % colors.size()])
+	while x < viewport_size.x + 40.0:
+		var width = 54.0 + float((index % 3) * 12)
+		var height = 78.0 + float((index * 47) % 135)
+		var rect = Rect2(
+			Vector2(x, horizon - height),
+			Vector2(width, height)
+		)
 
-		# Small glowing windows.
-		for x in range(int(rect.position.x + 12), int(rect.position.x + rect.size.x - 8), 18):
-			for y in range(int(rect.position.y + 14), int(horizon - 10), 24):
+		draw_rect(rect, colors[index % colors.size()])
+
+		# Small windows add a warm, lived-in city feel.
+		for window_x in range(int(x + 11), int(x + width - 7), 17):
+			for window_y in range(int(rect.position.y + 14), int(horizon - 9), 23):
 				draw_rect(
-					Rect2(Vector2(x, y), Vector2(4, 7)),
+					Rect2(Vector2(window_x, window_y), Vector2(4, 7)),
 					Color(0.18, 0.62, 0.63, 0.34)
 				)
 
+		x += width + 12.0
+		index += 1
+
 	# Soft isometric grid along the bottom edge.
-	for x in range(int(-viewport_size.y), int(viewport_size.x + viewport_size.y), 48):
+	for line_x in range(
+		int(-viewport_size.y),
+		int(viewport_size.x + viewport_size.y),
+		48
+	):
 		draw_line(
-			Vector2(x, horizon),
-			Vector2(x + viewport_size.y * 0.5, viewport_size.y),
+			Vector2(line_x, horizon),
+			Vector2(line_x + viewport_size.y * 0.5, viewport_size.y),
 			Color(0.16, 0.58, 0.61, 0.12),
 			1.0
 		)
 
-	for y in range(int(horizon), int(viewport_size.y + 40), 32):
+	for line_y in range(int(horizon), int(viewport_size.y + 40), 32):
 		draw_line(
-			Vector2(0, y),
-			Vector2(viewport_size.x, y),
+			Vector2(0, line_y),
+			Vector2(viewport_size.x, line_y),
 			Color(0.16, 0.58, 0.61, 0.10),
 			1.0
 		)
