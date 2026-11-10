@@ -554,9 +554,9 @@ func _read_valid_save(path):
 		if parsed.has(field) and typeof(parsed[field]) != TYPE_DICTIONARY:
 			return {}
 
-	if parsed.has("grid_size"):
-		if int(parsed["grid_size"]) < 1:
-			return {}
+	var grid_size = int(parsed.get("grid_size", 25))
+	if grid_size < 1 or grid_size > 256:
+		return {}
 
 	# Reject structurally damaged records before they can be converted
 	# into Vector2.ZERO and accidentally place data at the map origin.
@@ -616,12 +616,12 @@ func _read_valid_save(path):
 			return {}
 		if str(citizen.get("id", "")).strip_edges() == "":
 			return {}
-		if not _is_valid_vector_data(citizen.get("home_grid", null)):
+		if not _is_valid_grid_vector(citizen.get("home_grid", null), grid_size):
 			return {}
-		if not _is_valid_vector_data(citizen.get("grid_pos", null)):
+		if not _is_valid_grid_vector(citizen.get("grid_pos", null), grid_size):
 			return {}
 		for vector_field in ["target_grid", "previous_grid", "work_grid"]:
-			if citizen.has(vector_field) and not _is_valid_vector_data(citizen[vector_field]):
+			if citizen.has(vector_field) and not _is_valid_grid_vector(citizen[vector_field], grid_size):
 				return {}
 
 	return parsed
