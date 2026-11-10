@@ -473,7 +473,14 @@ func get_tile_polygon(pos):
 
 func is_tile_occupied(grid_pos):
 	for building in placed_buildings:
-		if building["grid"] == grid_pos:
+		var building_id = str(building.get("id", ""))
+		var origin = building.get("grid", Vector2.ZERO)
+		var occupied_tiles = building_footprints.get_occupied_tiles(
+			building_id,
+			origin
+		)
+
+		if grid_pos in occupied_tiles:
 			return true
 
 	return false
@@ -709,6 +716,21 @@ func _place_building(building_id):
 		update()
 		return false
 
+	# Mountains occupy a 3x3 area and must block every tile in a
+	# building's footprint, not only the building origin.
+	var mountain_system = get_node_or_null("../MountainSystem")
+	if mountain_system != null:
+		for tile in building_footprints.get_occupied_tiles(
+			building_id,
+			grid_pos
+		):
+			if mountain_system.is_grid_blocked(tile):
+				print(
+					"BUILDING PLACEMENT CANCELLED: MOUNTAIN_OCCUPIED at ",
+					tile
+				)
+				return false
+
 	var StorageDefinitions = load(
 		"res://scripts/resources/StorageDefinitions.gd"
 	)
@@ -852,8 +874,25 @@ func _confirm_place_road():
 
 	var grid_pos = Vector2(selected_x, selected_y)
 
+	if not land_system.is_inside_map(grid_pos):
+		print("Cannot build a road outside the map: ", grid_pos)
+		return
+
+	if not land_system.is_owned(grid_pos):
+		print("Cannot build a road on unowned land: ", grid_pos)
+		return
+
 	if is_tile_occupied(grid_pos):
-		print("Cannot build a road on a building tile: ", grid_pos)
+		print("Cannot build a road on a building footprint tile: ", grid_pos)
+		return
+
+	var mountain_system = get_node_or_null("../MountainSystem")
+	if mountain_system != null and mountain_system.is_grid_blocked(grid_pos):
+		print("Cannot build a road on a mountain tile: ", grid_pos)
+		return
+
+	if road_system.has_road(grid_pos):
+		print("A road already exists on this tile: ", grid_pos)
 		return
 
 	var added = road_system.add_road(
