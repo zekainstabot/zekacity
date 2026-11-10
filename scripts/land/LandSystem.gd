@@ -45,7 +45,7 @@ func is_owned(grid_pos):
 
 
 func can_buy(grid_pos):
-	return _is_inside_map(grid_pos) and not is_owned(grid_pos)
+	return is_inside_map(grid_pos) and not is_owned(grid_pos)
 
 
 func buy_land(grid_pos):
@@ -175,4 +175,6 @@ func _is_inside_map(grid_pos):
 		and grid_pos.y >= 0
 		and grid_pos.x < grid_size
 		and grid_pos.y < grid_size
+		and grid_pos.x == int(grid_pos.x)
+		and grid_pos.y == int(grid_pos.y)
 	)
