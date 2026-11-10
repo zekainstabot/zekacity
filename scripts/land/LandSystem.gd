@@ -30,10 +30,17 @@ func initialize(size):
 
 
 func is_inside_map(grid_pos):
-	return _is_inside_map(grid_pos)
+	return (
+		_is_inside_map(grid_pos)
+		and grid_pos.x == int(grid_pos.x)
+		and grid_pos.y == int(grid_pos.y)
+	)
 
 
 func is_owned(grid_pos):
+	if not is_inside_map(grid_pos):
+		return false
+
 	return grid_pos in owned_tiles
 
 
