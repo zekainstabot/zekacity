@@ -1,21 +1,25 @@
-
 extends Node2D
 
+# ZekaCity - shared building rendering standard
+# Godot 3.6
+#
+# Every building is aligned by the visible artwork bounds, not by the
+# source image's transparent padding. The footprint controls its world width.
+# Keep generated assets isometric, upright, with the building touching the
+# bottom-center anchor and without a ground tile/platform.
+
 const GROUND_OFFSET_Y = 0.0
-const BUILDING_SCALE_MULTIPLIER = 1.2
-const MINERAL_MARKET_SCALE_MULTIPLIER = 1.0
-const MINERAL_MARKET_ANCHOR = Vector2(740.0, 895.0)
+const MAX_BUILDING_HEIGHT_TO_WIDTH = 1.5
+const MIN_VISIBLE_ALPHA = 0.05
 
 var world = null
 var building_id = ""
 var grid_pos = Vector2.ZERO
-
 var building_index = -1
 var visual_alpha = 1.0
 
 var building_texture = null
 var drawer = null
-
 var has_visible_bounds = false
 var visible_bounds = Rect2()
 
@@ -39,12 +43,10 @@ func setup(
 		"low_apartment": "res://BuildingImages/low_apartment.png",
 		"high_apartment": "res://BuildingImages/high_apartment.png",
 		"residential_tower": "res://BuildingImages/residential_tower.png",
-
 		"small_warehouse": "res://BuildingImages/small_warehouse.png",
 		"medium_warehouse": "res://BuildingImages/medium_warehouse.png",
-		"large_warehouse": "res://BuildingImages/medium_warehouse.png",
-		"huge_warehouse": "res://BuildingImages/medium_warehouse.png",
-
+		"large_warehouse": "res://BuildingImages/large_warehouse.png",
+		"huge_warehouse": "res://BuildingImages/huge_warehouse.png",
 		"grocery_store": "res://BuildingImages/grocery_store.png",
 		"bakery": "res://BuildingImages/bakery.png",
 		"restaurant": "res://BuildingImages/restaurant.png",
@@ -58,11 +60,9 @@ func setup(
 	has_visible_bounds = false
 	visible_bounds = Rect2()
 
-	var texture_path = ""
+	var texture_path = texture_paths.get(building_id, "")
 
-	if texture_paths.has(building_id):
-		texture_path = texture_paths[building_id]
-
+	if texture_path != "":
 		if ResourceLoader.exists(texture_path):
 			building_texture = load(texture_path)
 		else:
@@ -79,7 +79,6 @@ func setup(
 			visible_bounds = cached_bounds["bounds"]
 		else:
 			_calculate_visible_bounds()
-
 			if world != null:
 				world.building_texture_bounds_cache[texture_path] = {
 					"valid": has_visible_bounds,
@@ -89,37 +88,35 @@ func setup(
 		if not (building_id in ["woodcutter", "sawmill", "carpenter"]):
 			push_warning("No texture loaded for building: " + building_id)
 
-	var footprint = Vector2.ONE
-
-	if world != null and world.building_footprints != null:
-		footprint = world.building_footprints.get_footprint(
-			building_id
-		)
-
+	var footprint = _get_footprint()
 	var visual_grid_pos = grid_pos + Vector2(
 		(footprint.x - 1.0) / 2.0,
 		(footprint.y - 1.0) / 2.0
 	)
 
 	if world != null:
+		# Anchor all building art to the south point of its complete footprint.
 		var ground_offset = (
 			(footprint.x + footprint.y)
 			* float(world.tile_height)
 			/ 4.0
 		)
-
 		position = world.grid_to_screen(
 			visual_grid_pos,
 			Vector2(600, 130)
 		) + Vector2(0, ground_offset)
 
-		z_index = int(round(
-			visual_grid_pos.x + visual_grid_pos.y
-		))
+		# Stable draw ordering from the footprint's center.
+		z_index = int(round(visual_grid_pos.x + visual_grid_pos.y))
 
 	modulate = Color(1, 1, 1, visual_alpha)
-
 	update()
+
+
+func _get_footprint():
+	if world != null and world.building_footprints != null:
+		return world.building_footprints.get_footprint(building_id)
+	return Vector2.ONE
 
 
 func _calculate_visible_bounds():
@@ -130,18 +127,15 @@ func _calculate_visible_bounds():
 		return
 
 	var image = building_texture.get_data()
-
 	if image == null:
 		return
 
 	var image_width = image.get_width()
 	var image_height = image.get_height()
-
 	if image_width <= 0 or image_height <= 0:
 		return
 
 	image.lock()
-
 	var min_x = image_width
 	var min_y = image_height
 	var max_x = -1
@@ -149,7 +143,7 @@ func _calculate_visible_bounds():
 
 	for y in range(image_height):
 		for x in range(image_width):
-			if image.get_pixel(x, y).a > 0.05:
+			if image.get_pixel(x, y).a > MIN_VISIBLE_ALPHA:
 				min_x = min(min_x, x)
 				min_y = min(min_y, y)
 				max_x = max(max_x, x)
@@ -166,7 +160,6 @@ func _calculate_visible_bounds():
 		max_x - min_x + 1,
 		max_y - min_y + 1
 	)
-
 	has_visible_bounds = true
 
 
@@ -174,59 +167,40 @@ func _draw():
 	if world == null:
 		return
 
-	var footprint = Vector2.ONE
-
-	if world.building_footprints != null:
-		footprint = world.building_footprints.get_footprint(
-			building_id
-		)
-
+	var footprint = _get_footprint()
 	var tile_w = float(world.tile_width)
 	var tile_h = float(world.tile_height)
 
-	var target_size = Vector2(
-		max(
-			tile_w,
-			(footprint.x + footprint.y) * tile_w / 2.0
-		),
-		max(
-			tile_h * 2.0,
-			(footprint.x + footprint.y) * tile_h * 1.5
-		)
+	# Projected width of the occupied isometric footprint.
+	# This is the same scale rule for every textured building.
+	var target_width = max(
+		tile_w,
+		(footprint.x + footprint.y) * tile_w / 2.0
 	)
+	var target_height = max(
+		tile_h * 2.0,
+		target_width * MAX_BUILDING_HEIGHT_TO_WIDTH
+	)
+	var target_size = Vector2(target_width, target_height)
 
-	if building_texture != null:
-		var texture_size = building_texture.get_size()
+	if building_texture != null and has_visible_bounds:
+		var visible_width = visible_bounds.size.x
+		var visible_height = visible_bounds.size.y
 
-		if texture_size.x <= 0 or texture_size.y <= 0:
+		if visible_width <= 0.0 or visible_height <= 0.0:
 			return
 
+		# Normalize by visible pixels, not the file canvas. This prevents
+		# transparent margins from making otherwise identical buildings
+		# appear smaller or shift their ground contact point.
 		var scale_factor = min(
-			target_size.x / texture_size.x,
-			target_size.y / texture_size.y
-		) * BUILDING_SCALE_MULTIPLIER
-
-		if building_id == "mineral_market":
-			scale_factor *= MINERAL_MARKET_SCALE_MULTIPLIER
-
-		var anchor_x = texture_size.x / 2.0
-		var anchor_y = texture_size.y
-
-		if has_visible_bounds:
-			anchor_x = (
-				visible_bounds.position.x
-				+ visible_bounds.size.x / 2.0
-			)
-
-			anchor_y = visible_bounds.end.y
-
-		if building_id == "mineral_market":
-			anchor_x = MINERAL_MARKET_ANCHOR.x
-			anchor_y = MINERAL_MARKET_ANCHOR.y
+			target_width / visible_width,
+			target_height / visible_height
+		)
 
 		var draw_position = Vector2(
-			-anchor_x * scale_factor,
-			-anchor_y * scale_factor + GROUND_OFFSET_Y
+			-visible_bounds.get_center().x * scale_factor,
+			-visible_bounds.end.y * -scale_factor + GROUND_OFFSET_Y
 		)
 
 		draw_set_transform(
@@ -234,47 +208,21 @@ func _draw():
 			0.0,
 			Vector2(scale_factor, scale_factor)
 		)
-
-		draw_texture(
-			building_texture,
-			Vector2.ZERO
-		)
-
-		draw_set_transform(
-			Vector2.ZERO,
-			0.0,
-			Vector2.ONE
-		)
-
+		draw_texture(building_texture, Vector2.ZERO)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
 		if building_id in ["woodcutter", "sawmill", "carpenter"]:
 			_draw_wood_industry_building()
 		elif drawer != null:
-			drawer.draw_building(
-				self,
-				building_id,
-				Vector2.ZERO
-			)
+			drawer.draw_building(self, building_id, Vector2.ZERO)
 
-	if not world._building_has_road_access(
-		building_id,
-		grid_pos
-	):
+	if not world._building_has_road_access(building_id, grid_pos):
 		_draw_road_warning(target_size)
 
 
 func _draw_road_warning(target_size):
-	var marker_position = Vector2(
-		0,
-		-target_size.y * 0.75
-	)
-
-	draw_circle(
-		marker_position,
-		11.0,
-		Color(0.9, 0.12, 0.12, 1)
-	)
-
+	var marker_position = Vector2(0, -target_size.y * 0.75)
+	draw_circle(marker_position, 11.0, Color(0.9, 0.12, 0.12, 1))
 	draw_line(
 		marker_position + Vector2(0, -5),
 		marker_position + Vector2(0, 2),
@@ -282,7 +230,6 @@ func _draw_road_warning(target_size):
 		2.5,
 		true
 	)
-
 	draw_circle(
 		marker_position + Vector2(0, 6),
 		1.5,
@@ -297,12 +244,17 @@ func refresh_road_warning():
 func _draw_wood_industry_building():
 	var base_color = Color(0.48, 0.31, 0.18)
 	var roof_color = Color(0.30, 0.19, 0.12)
+
 	if building_id == "sawmill":
 		base_color = Color(0.56, 0.43, 0.27)
 		roof_color = Color(0.38, 0.27, 0.16)
 	elif building_id == "carpenter":
 		base_color = Color(0.66, 0.48, 0.28)
 		roof_color = Color(0.43, 0.29, 0.17)
+
+	# The procedural fallback uses the exact same bottom-center anchor
+	# as image assets (the lowest point is local y = 0).
+	draw_set_transform(Vector2(0, -18), 0.0, Vector2.ONE)
 
 	draw_colored_polygon(PoolVector2Array([
 		Vector2(-38, 0), Vector2(0, 18),
@@ -316,9 +268,24 @@ func _draw_wood_industry_building():
 		Vector2(-40, -48), Vector2(0, -70),
 		Vector2(40, -48), Vector2(0, -28)
 	]), roof_color)
-	draw_rect(Rect2(Vector2(-25, -28), Vector2(12, 14)), Color(0.25, 0.16, 0.10))
-	draw_rect(Rect2(Vector2(8, -35), Vector2(15, 12)), Color(0.70, 0.83, 0.82))
+	draw_rect(
+		Rect2(Vector2(-25, -28), Vector2(12, 14)),
+		Color(0.25, 0.16, 0.10)
+	)
+	draw_rect(
+		Rect2(Vector2(8, -35), Vector2(15, 12)),
+		Color(0.70, 0.83, 0.82)
+	)
+
 	if building_id == "sawmill":
-		draw_rect(Rect2(Vector2(-12, -15), Vector2(24, 8)), Color(0.76, 0.62, 0.38))
+		draw_rect(
+			Rect2(Vector2(-12, -15), Vector2(24, 8)),
+			Color(0.76, 0.62, 0.38)
+		)
 	elif building_id == "carpenter":
-		draw_rect(Rect2(Vector2(-12, -18), Vector2(24, 11)), Color(0.40, 0.25, 0.13))
+		draw_rect(
+			Rect2(Vector2(-12, -18), Vector2(24, 11)),
+			Color(0.40, 0.25, 0.13)
+		)
+
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
