@@ -178,13 +178,20 @@ func show_for_building(building_name, target_world = null, building_id = ""):
 				"Mineral Market\n\n"
 				+ "Municipal resources:\n"
 				+ "Stone: %d\n" % int(amounts.get("stone", 0))
-				+ "Iron ore: %d\n\n" % int(amounts.get("iron_ore", 0))
+				+ "Iron ore: %d\n" % int(amounts.get("iron_ore", 0))
+				+ "Wood: %d\n" % int(amounts.get("wood", 0))
+				+ "Lumber: %d\n" % int(amounts.get("lumber", 0))
+				+ "Furniture: %d\n\n" % int(amounts.get("furniture", 0))
 				+ "Market stock:\n"
-				+ "Stone: %d\n" % market.get_stock("stone")
-				+ "Iron ore: %d\n\n" % market.get_stock("iron_ore")
-				+ "Transfer prices:\n"
-				+ "Stone: $%d each\n" % market.get_price("stone")
-				+ "Iron ore: $%d each" % market.get_price("iron_ore")
+				+ "Stone: %d | $%d retail\n" % [market.get_stock("stone"), market.get_sell_price("stone")]
+				+ "Iron ore: %d | $%d retail\n" % [market.get_stock("iron_ore"), market.get_sell_price("iron_ore")]
+				+ "Wood: %d | $%d retail\n" % [market.get_stock("wood"), market.get_sell_price("wood")]
+				+ "Lumber: %d | $%d retail\n" % [market.get_stock("lumber"), market.get_sell_price("lumber")]
+				+ "Furniture: %d | $%d retail\n\n" % [market.get_stock("furniture"), market.get_sell_price("furniture")]
+				+ "Wholesale purchase prices:\n"
+				+ "Stone: $%d | Iron ore: $%d\n" % [market.get_price("stone"), market.get_price("iron_ore")]
+				+ "Wood: $%d | Lumber: $%d\n" % [market.get_price("wood"), market.get_price("lumber")]
+				+ "Furniture: $%d" % market.get_price("furniture")
 			)
 			market_stone_button.visible = true
 			market_iron_button.visible = true
@@ -212,7 +219,10 @@ func _is_business_building(building_id):
 		"office",
 		"mineral_market",
 		"shopping_mall",
-		"factory"
+		"factory",
+		"woodcutter",
+		"sawmill",
+		"carpenter"
 	]
 
 
