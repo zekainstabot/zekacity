@@ -19,16 +19,11 @@ func _ready():
 
 func _is_over_ui(screen_position):
 	var root = get_tree().get_root()
-	var ui = root.find_node("UI", true, false)
-
-	if ui == null:
-		return false
-
-	return _node_has_interactive_control_at(ui, screen_position)
+	return _node_has_interactive_control_at(root, screen_position)
 
 
 func _node_has_interactive_control_at(node, screen_position):
-	if node is Control:
+	if node is Control and node.name != "ConstructionUI":
 		if node.is_visible_in_tree():
 			if node.mouse_filter != Control.MOUSE_FILTER_IGNORE:
 				if node.get_global_rect().has_point(screen_position):
