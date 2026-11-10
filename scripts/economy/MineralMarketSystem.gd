@@ -2,6 +2,9 @@ extends Reference
 
 const STORAGE_RESERVE = 50
 const MAX_SALES_PER_SECOND = 2.0
+const MAX_STOCK_PER_PRODUCT = 100
+const SUPPLY_INTERVAL = 30.0
+const SUPPLY_BATCH_SIZE = 5
 
 const PRODUCTS = {
 	"stone": {
@@ -27,6 +30,8 @@ var sale_accumulators = {
 	"stone": 0.0,
 	"iron_ore": 0.0
 }
+
+var supply_elapsed = 0.0
 
 
 func get_products():
@@ -213,12 +218,84 @@ func sell_to_customer(resource_id, amount, wallet, building):
 	}
 
 
-# Municipal-to-market supply remains disabled until its pricing and
-# inventory-transfer rules are exposed in the market UI.
+# Purchase stock from municipal storage using the market's working
+# capital policy: the municipality pays the configured wholesale price.
 func receive_from_municipal_storage(resource_manager, resource_id, amount, treasury):
+	if not PRODUCTS.has(resource_id):
+		return {
+			"success": false,
+			"error": "UNKNOWN_PRODUCT"
+		}
+
+	if resource_manager == null or treasury == null:
+		return {
+			"success": false,
+			"error": "INVALID_ECONOMY_REFERENCE"
+		}
+
+	var quantity = int(amount)
+	if quantity <= 0:
+		return {
+			"success": false,
+			"error": "INVALID_AMOUNT"
+		}
+
+	var current_stock = get_stock(resource_id)
+	var accepted_quantity = min(
+		quantity,
+		MAX_STOCK_PER_PRODUCT - current_stock,
+		resource_manager.get_amount(resource_id)
+	)
+
+	if accepted_quantity <= 0:
+		return {
+			"success": false,
+			"error": "NO_AVAILABLE_SUPPLY_OR_CAPACITY"
+		}
+
+	var unit_price = get_price(resource_id)
+	var total_cost = unit_price * accepted_quantity
+
+	if not treasury.can_afford(total_cost):
+		accepted_quantity = int(
+			floor(float(treasury.get_available_money()) / float(unit_price))
+		)
+		accepted_quantity = min(
+			accepted_quantity,
+			quantity,
+			MAX_STOCK_PER_PRODUCT - current_stock,
+			resource_manager.get_amount(resource_id)
+		)
+		total_cost = unit_price * accepted_quantity
+
+	if accepted_quantity <= 0:
+		return {
+			"success": false,
+			"error": "INSUFFICIENT_TREASURY_FUNDS"
+		}
+
+	# Spend first, then remove the matching stock. If removal fails,
+	# refund the treasury so the transfer remains atomic.
+	if not treasury.spend(total_cost):
+		return {
+			"success": false,
+			"error": "TREASURY_PAYMENT_FAILED"
+		}
+
+	if not resource_manager.remove_resource(resource_id, accepted_quantity):
+		treasury.add_money(total_cost)
+		return {
+			"success": false,
+			"error": "RESOURCE_TRANSFER_FAILED"
+		}
+
+	stock[resource_id] = current_stock + accepted_quantity
+
 	return {
-		"success": false,
-		"error": "SUPPLY_TRANSFER_NOT_CONFIGURED"
+		"success": true,
+		"quantity": accepted_quantity,
+		"cost": total_cost,
+		"remaining_stock": stock[resource_id]
 	}
 
 
