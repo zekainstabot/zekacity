@@ -8,6 +8,7 @@ const SAVE_PATH = "user://zeka_city_save.json"
 const TEMP_SAVE_PATH = "user://zeka_city_save.tmp"
 const BACKUP_SAVE_PATH = "user://zeka_city_save.backup.json"
 const SAVE_VERSION = 1
+const BuildingData = preload("res://scripts/BuildingData.gd")
 
 
 func save_world(world):
@@ -562,25 +563,32 @@ func _read_valid_save(path):
 	for building in parsed.get("placed_buildings", []):
 		if typeof(building) != TYPE_DICTIONARY:
 			return {}
-		if str(building.get("id", "")).strip_edges() == "":
+		var building_id = str(building.get("id", "")).strip_edges()
+		if building_id == "" or not BuildingData.BUILDING_LAYOUTS.has(building_id):
 			return {}
 		if not _is_valid_vector_data(building.get("grid", null)):
 			return {}
+		var building_grid = _data_to_vector(building["grid"])
+		var layout = BuildingData.BUILDING_LAYOUTS[building_id]
+		if not _is_valid_building_grid(building_grid, layout, grid_size):
+			return {}
 
 	for tile in parsed.get("owned_tiles", []):
-		if not _is_valid_vector_data(tile):
+		if not _is_valid_grid_vector(tile, grid_size):
 			return {}
 
 	for road in parsed.get("roads", []):
 		if typeof(road) != TYPE_DICTIONARY:
 			return {}
-		if not _is_valid_vector_data(road.get("grid", null)):
+		if not _is_valid_grid_vector(road.get("grid", null), grid_size):
 			return {}
 
 	for tree in parsed.get("forests", []):
 		if typeof(tree) != TYPE_DICTIONARY:
 			return {}
-		if not _is_valid_vector_data(tree.get("grid", null)):
+		if not _is_valid_grid_vector(tree.get("grid", null), grid_size):
+			return {}
+		if tree.has("remaining") and float(tree.get("remaining", 0.0)) < 0.0:
 			return {}
 
 	for mountain in parsed.get("mountains", []):
@@ -591,6 +599,10 @@ func _read_valid_save(path):
 		if not _is_valid_vector_data(mountain.get("origin", null)):
 			return {}
 		if not _is_valid_vector_data(mountain.get("mine_point", null)):
+			return {}
+		if not _is_valid_grid_vector(mountain.get("mine_point", null), grid_size):
+			return {}
+		if not _is_valid_building_grid(_data_to_vector(mountain["origin"]), [3, 3], grid_size):
 			return {}
 
 	for mine in parsed.get("mines", []):
@@ -627,6 +639,34 @@ func _is_valid_vector_data(value):
 
 	var numeric_types = [TYPE_INT, TYPE_REAL]
 	return x_type in numeric_types and y_type in numeric_types
+
+
+func _is_valid_grid_vector(value, grid_size):
+	if not _is_valid_vector_data(value):
+		return false
+
+	var x = float(value["x"])
+	var y = float(value["y"])
+	return (
+		x == int(x)
+		and y == int(y)
+		and x >= 0
+		and y >= 0
+		and x < grid_size
+		and y < grid_size
+	)
+
+
+func _is_valid_building_grid(origin, layout, grid_size):
+	if origin.x != int(origin.x) or origin.y != int(origin.y):
+		return false
+	if origin.x < 0 or origin.y < 0:
+		return false
+	if origin.x + int(layout[0]) > grid_size:
+		return false
+	if origin.y + int(layout[1]) > grid_size:
+		return false
+	return true
 
 
 func _vector_to_data(value):
