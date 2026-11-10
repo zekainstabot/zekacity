@@ -52,7 +52,10 @@ var category_buildings = {
 			"office",
 			"shopping_mall",
 			"factory",
-			"mineral_market"
+			"mineral_market",
+			"woodcutter",
+			"sawmill",
+			"carpenter"
 		]
 	},
 	106: {
