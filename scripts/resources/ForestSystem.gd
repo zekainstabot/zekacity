@@ -125,8 +125,9 @@ func _process(delta):
 				# Keep the regrowth site pending until construction or
 				# road placement no longer blocks its original forest tile.
 				site["remaining"] = 30.0
-
-		regrowth_sites[i] = site if i < regrowth_sites.size() else site
+				regrowth_sites[i] = site
+		else:
+			regrowth_sites[i] = site
 
 	if changed:
 		_refresh_tree_visuals()
