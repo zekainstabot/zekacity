@@ -19,7 +19,10 @@ const JOB_CAPACITY = {
 	"office": 20,
 	"mineral_market": 1,
 	"shopping_mall": 30,
-	"factory": 25
+	"factory": 25,
+	"woodcutter": 4,
+	"sawmill": 3,
+	"carpenter": 3
 }
 
 var world = null
