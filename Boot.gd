@@ -15,6 +15,88 @@ var launch_started = false
 var ui_font_data = null
 
 
+
+
+func _draw():
+	var viewport_size = get_viewport_rect().size
+	var width = max(viewport_size.x, 640.0)
+	var height = max(viewport_size.y, 480.0)
+
+	# Subtle isometric grid in the background.
+	var grid_color = Color(0.18, 0.48, 0.56, 0.12)
+	var spacing = 58.0
+	var diagonal = width + height
+
+	for offset in range(-int(diagonal), int(diagonal), int(spacing)):
+		draw_line(
+			Vector2(offset, 0),
+			Vector2(offset + height, height),
+			grid_color,
+			1.0,
+			true
+		)
+		draw_line(
+			Vector2(offset, 0),
+			Vector2(offset - height, height),
+			grid_color,
+			1.0,
+			true
+		)
+
+	# Decorative low-poly skyline, kept behind the loading panel.
+	var base_y = height * 0.80
+	var building_width = 76.0
+
+	for i in range(-2, int(width / building_width) + 3):
+		var x = float(i) * building_width + 12.0
+		var wave = sin(float(i) * 1.7) * 10.0
+		var building_height = 70.0 + float(abs(i * 37) % 90)
+		var top_y = base_y - building_height + wave
+
+		var front = PoolVector2Array([
+			Vector2(x, top_y + 22.0),
+			Vector2(x + 38.0, top_y + 42.0),
+			Vector2(x + 38.0, base_y + 20.0),
+			Vector2(x, base_y)
+		])
+		var side = PoolVector2Array([
+			Vector2(x + 38.0, top_y + 42.0),
+			Vector2(x + 66.0, top_y + 26.0),
+			Vector2(x + 66.0, base_y + 4.0),
+			Vector2(x + 38.0, base_y + 20.0)
+		])
+		var roof = PoolVector2Array([
+			Vector2(x, top_y + 22.0),
+			Vector2(x + 28.0, top_y + 6.0),
+			Vector2(x + 66.0, top_y + 26.0),
+			Vector2(x + 38.0, top_y + 42.0)
+		])
+
+		draw_colored_polygon(front, Color(0.07, 0.22, 0.32, 0.72))
+		draw_colored_polygon(side, Color(0.04, 0.14, 0.23, 0.78))
+		draw_colored_polygon(roof, Color(0.11, 0.32, 0.42, 0.80))
+
+		for row in range(2):
+			for col in range(2):
+				var window_x = x + 9.0 + col * 15.0
+				var window_y = top_y + 53.0 + row * 22.0
+				if window_y < base_y - 8.0:
+					draw_rect(
+						Rect2(Vector2(window_x, window_y), Vector2(5, 8)),
+						Color(0.20, 0.82, 0.75, 0.30)
+					)
+
+	# A small animated highlight line gives the background a living feel.
+	var glow_x = fposmod(OS.get_ticks_msec() / 45.0, width + 220.0) - 110.0
+	draw_line(
+		Vector2(glow_x, base_y + 28.0),
+		Vector2(glow_x + 130.0, base_y + 28.0),
+		Color(0.12, 0.78, 0.73, 0.18),
+		2.0,
+		true
+	)
+
+
 func _ready():
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 	if ResourceLoader.exists(font_path):
@@ -22,6 +104,7 @@ func _ready():
 
 	_build_loading_screen()
 	set_process(true)
+	set_process_input(false)
 	call_deferred("_start_loading")
 
 
@@ -61,11 +144,6 @@ func _build_loading_screen():
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
 
-	# Subtle isometric city pattern.
-	var pattern = Node2D.new()
-	pattern.set_script(load("res://scripts/ui/LoadingCityPattern.gd"))
-	add_child(pattern)
-
 	var center = CenterContainer.new()
 	center.anchor_right = 1.0
 	center.anchor_bottom = 1.0
@@ -73,7 +151,11 @@ func _build_loading_screen():
 	add_child(center)
 
 	var panel = PanelContainer.new()
-	panel.rect_min_size = Vector2(520, 330)
+	var screen_width = get_viewport_rect().size.x
+	panel.rect_min_size = Vector2(
+		max(280.0, min(520.0, screen_width - 32.0)),
+		330
+	)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var panel_style = StyleBoxFlat.new()
