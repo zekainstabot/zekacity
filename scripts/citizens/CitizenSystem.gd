@@ -239,15 +239,15 @@ func _create_citizen(home_key, home_grid):
 	var citizen_id = "citizen_" + str(next_citizen_id)
 	next_citizen_id += 1
 
-	var start_grid = _find_nearest_connected_road(home_grid)
-
+	# Build the home record first: road lookup needs its home_key
+	# to determine the correct building footprint.
 	var citizen = {
 		"id": citizen_id,
 		"home_key": home_key,
 		"home_grid": home_grid,
-		"grid_pos": start_grid,
-		"target_grid": start_grid,
-		"previous_grid": start_grid,
+		"grid_pos": home_grid,
+		"target_grid": home_grid,
+		"previous_grid": home_grid,
 		"move_progress": 0.0,
 		"move_duration": 1.0,
 		"skin_seed": rng.randi_range(1, 1000000),
@@ -262,6 +262,11 @@ func _create_citizen(home_key, home_grid):
 			HOME_VISIT_INTERVAL_MAX
 		)
 	}
+
+	var start_grid = _find_nearest_connected_road(citizen)
+	citizen["grid_pos"] = start_grid
+	citizen["target_grid"] = start_grid
+	citizen["previous_grid"] = start_grid
 
 	_choose_next_target(citizen)
 
