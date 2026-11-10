@@ -40,7 +40,7 @@ func _draw():
 				)
 
 	# Soft isometric grid along the bottom edge.
-	for x in range(-viewport_size.y, viewport_size.x + viewport_size.y, 48):
+	for x in range(int(-viewport_size.y), int(viewport_size.x + viewport_size.y), 48):
 		draw_line(
 			Vector2(x, horizon),
 			Vector2(x + viewport_size.y * 0.5, viewport_size.y),
