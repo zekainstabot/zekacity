@@ -350,24 +350,59 @@ func _has_road_connection(from_grid, to_grid):
 	)
 
 
-func _find_nearest_connected_road(from_grid):
+func _find_nearest_connected_road(citizen):
+	# Only consider roads reachable from this citizen's own home.
+	# The previous implementation selected any nearest road, which
+	# could teleport citizens onto a disconnected road network.
+	var home_roads = _get_home_adjacent_roads(citizen)
 	var road_tiles = _get_road_tiles()
 
-	if road_tiles.empty():
-		return from_grid
+	if home_roads.empty() or road_tiles.empty():
+		return citizen.get("home_grid", Vector2.ZERO)
 
-	var nearest = road_tiles[0]
-	var nearest_distance = 999999
+	var queue = []
+	var visited = []
 
-	for road_grid in road_tiles:
-		var distance = (
-			abs(from_grid.x - road_grid.x)
-			+ abs(from_grid.y - road_grid.y)
-		)
+	for road_grid in home_roads:
+		if road_tiles.has(road_grid) and not visited.has(road_grid):
+			queue.append(road_grid)
+			visited.append(road_grid)
 
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest = road_grid
+	if queue.empty():
+		return citizen.get("home_grid", Vector2.ZERO)
+
+	var reference_grid = citizen.get("home_grid", Vector2.ZERO)
+	var nearest = queue[0]
+	var nearest_distance = (
+		abs(reference_grid.x - nearest.x)
+		+ abs(reference_grid.y - nearest.y)
+	)
+
+	# Breadth-first traversal visits only roads connected to the home.
+	while not queue.empty():
+		var current = queue.pop_front()
+		var neighbors = [
+			current + Vector2(1, 0),
+			current + Vector2(0, 1),
+			current + Vector2(-1, 0),
+			current + Vector2(0, -1)
+		]
+
+		for neighbor in neighbors:
+			if not road_tiles.has(neighbor) or visited.has(neighbor):
+				continue
+
+			visited.append(neighbor)
+			queue.append(neighbor)
+
+			var distance = (
+				abs(reference_grid.x - neighbor.x)
+				+ abs(reference_grid.y - neighbor.y)
+			)
+
+			if distance < nearest_distance:
+				nearest_distance = distance
+				nearest = neighbor
 
 	return nearest
 
@@ -561,7 +596,7 @@ func _choose_next_target(citizen):
 		return
 
 	if not road_tiles.has(current):
-		var nearest = _find_nearest_connected_road(current)
+		var nearest = _find_nearest_connected_road(citizen)
 
 		citizen["grid_pos"] = nearest
 		citizen["target_grid"] = nearest
