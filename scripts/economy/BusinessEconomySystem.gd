@@ -238,13 +238,12 @@ func process_wood_industry(world):
 
 		match building_id:
 			"woodcutter":
-				# A woodcutter must be close to a living forest patch.
-				if forest.harvest_near(building.get("grid", Vector2.ZERO), 6):
-					if world.resource_manager.add_resource("wood", 2):
+				# Reserve storage first; never remove a tree if logs cannot fit.
+				if world.resource_manager.add_resource("wood", 2):
+					if forest.harvest_near(building.get("grid", Vector2.ZERO), 6):
 						produced = true
 					else:
-						# Restore a harvested tree if storage was full.
-						forest.restore_tree_near(building.get("grid", Vector2.ZERO), 6)
+						world.resource_manager.remove_resource("wood", 2)
 			"sawmill":
 				if world.resource_manager.get_amount("wood") >= 2:
 					if world.resource_manager.remove_resource("wood", 2):
