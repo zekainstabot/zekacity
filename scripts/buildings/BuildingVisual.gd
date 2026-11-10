@@ -111,6 +111,7 @@ func setup(
 		# physically in front of them, regardless of creation order.
 		# Use projected screen Y so every tile-depth step has the same
 		# ordering scale as the isometric renderer.
+		z_as_relative = false
 		z_index = int(clamp(round(position.y), -4096, 4096))
 
 	modulate = Color(1, 1, 1, visual_alpha)
