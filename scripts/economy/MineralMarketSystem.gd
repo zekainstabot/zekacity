@@ -6,6 +6,12 @@ const MAX_STOCK_PER_PRODUCT = 100
 const SUPPLY_INTERVAL = 30.0
 const SUPPLY_BATCH_SIZE = 5
 
+# Forestry pricing follows the production chain:
+# Wood wholesale = $12 (slightly above the existing $10 stone baseline).
+# Lumber wholesale = 2 wood ($24) + $6 milling cost = $30.
+# Furniture wholesale = 2 lumber ($60) + $20 assembly cost = $80.
+# Retail prices apply the existing city-market markup: wood $18, lumber $42,
+# furniture $112. Producers receive wholesale; the market earns the retail margin.
 const PRODUCTS = {
 	"stone": {
 		"name": "Stone",
