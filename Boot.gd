@@ -12,9 +12,14 @@ var percent_label = null
 var retry_button = null
 var loading_failed = false
 var launch_started = false
+var ui_font_data = null
 
 
 func _ready():
+	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
+	if ResourceLoader.exists(font_path):
+		ui_font_data = load(font_path)
+
 	_build_loading_screen()
 	set_process(true)
 	call_deferred("_start_loading")
@@ -84,7 +89,7 @@ func _build_loading_screen():
 	center.add_child(panel)
 
 	var layout = VBoxContainer.new()
-	layout.alignment = BoxContainer.ALIGNMENT_CENTER
+	layout.alignment = BoxContainer.ALIGN_CENTER
 	layout.set("custom_constants/separation", 15)
 	panel.add_child(layout)
 
@@ -92,21 +97,21 @@ func _build_loading_screen():
 	emblem.text = "◆"
 	emblem.align = Label.ALIGN_CENTER
 	emblem.add_color_override("font_color", Color(0.25, 0.9, 0.82))
-	emblem.add_font_size_override("font_size", 42)
+	_apply_font(emblem, 42)
 	layout.add_child(emblem)
 
 	var title = Label.new()
 	title.text = "ZEKA CITY"
 	title.align = Label.ALIGN_CENTER
 	title.add_color_override("font_color", Color(0.94, 0.98, 1.0))
-	title.add_font_size_override("font_size", 34)
+	_apply_font(title, 34)
 	layout.add_child(title)
 
 	var subtitle = Label.new()
 	subtitle.text = "Build your world. Shape your future."
 	subtitle.align = Label.ALIGN_CENTER
 	subtitle.add_color_override("font_color", Color(0.57, 0.75, 0.82))
-	subtitle.add_font_size_override("font_size", 15)
+	_apply_font(subtitle, 15)
 	layout.add_child(subtitle)
 
 	var spacer = Control.new()
@@ -141,7 +146,7 @@ func _build_loading_screen():
 	percent_label.text = "0%"
 	percent_label.align = Label.ALIGN_CENTER
 	percent_label.add_color_override("font_color", Color(0.35, 0.88, 0.81))
-	percent_label.add_font_size_override("font_size", 13)
+	_apply_font(percent_label, 13)
 	layout.add_child(percent_label)
 
 	retry_button = Button.new()
@@ -150,6 +155,16 @@ func _build_loading_screen():
 	retry_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	retry_button.connect("pressed", self, "_on_retry_pressed")
 	layout.add_child(retry_button)
+
+
+func _apply_font(label, size):
+	if ui_font_data == null:
+		return
+
+	var font = DynamicFont.new()
+	font.font_data = ui_font_data
+	font.size = size
+	label.add_font_override("font", font)
 
 
 func _start_loading():
