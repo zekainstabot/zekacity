@@ -17,6 +17,9 @@ var footprints = {
 	"shopping_mall": Vector2(4, 3),
 	"factory": Vector2(3, 3),
 	"mineral_market": Vector2(2, 2),
+	"woodcutter": Vector2(2, 2),
+	"sawmill": Vector2(3, 2),
+	"carpenter": Vector2(2, 2),
 
 	"water_tower": Vector2(2, 2),
 	"power_station": Vector2(3, 3),
