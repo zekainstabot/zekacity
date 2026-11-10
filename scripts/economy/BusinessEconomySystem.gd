@@ -12,12 +12,17 @@ const BUSINESS_DATA = {
 	"office": {"wage_per_worker": 60},
 	"mineral_market": {"wage_per_worker": 35},
 	"shopping_mall": {"wage_per_worker": 65},
-	"factory": {"wage_per_worker": 55}
+	"factory": {"wage_per_worker": 55},
+	"woodcutter": {"wage_per_worker": 32},
+	"sawmill": {"wage_per_worker": 42},
+	"carpenter": {"wage_per_worker": 48}
 }
 
 var payroll_interval = PAYROLL_INTERVAL
 var elapsed = 0.0
 var payroll_rotation = 0
+var production_interval = 30.0
+var production_elapsed = 0.0
 
 
 func process_economy(delta, world):
@@ -29,6 +34,11 @@ func process_economy(delta, world):
 	while elapsed >= payroll_interval:
 		elapsed -= payroll_interval
 		run_payroll(world)
+
+	production_elapsed += delta
+	while production_elapsed >= production_interval:
+		production_elapsed -= production_interval
+		process_wood_industry(world)
 
 
 func run_payroll(world):
@@ -199,3 +209,73 @@ func _pay_workers(workers, amount, wage_per_worker):
 
 	payroll_rotation = (start_index + 1) % workers.size()
 	return total_amount
+
+
+# --------------------------------------------------
+# FORESTRY PRODUCTION CHAIN
+# Woodcutter -> wood -> sawmill -> lumber -> carpenter -> furniture
+# Every 30 seconds, each staffed building runs one production cycle.
+# --------------------------------------------------
+
+func process_wood_industry(world):
+	if world == null or world.resource_manager == null:
+		return
+
+	var forest = world.get_node_or_null("../ForestSystem")
+	if forest == null:
+		return
+
+	for building_index in range(world.placed_buildings.size()):
+		var building = world.placed_buildings[building_index]
+		var building_id = str(building.get("id", ""))
+		if building_id not in ["woodcutter", "sawmill", "carpenter"]:
+			continue
+
+		if not _building_has_worker(world, building):
+			continue
+
+		var produced = false
+
+		match building_id:
+			"woodcutter":
+				# A woodcutter must be close to a living forest patch.
+				if forest.harvest_near(building.get("grid", Vector2.ZERO), 6):
+					if world.resource_manager.add_resource("wood", 2):
+						produced = true
+					else:
+						# Restore a harvested tree if storage was full.
+						forest.restore_tree_near(building.get("grid", Vector2.ZERO), 6)
+			"sawmill":
+				if world.resource_manager.get_amount("wood") >= 2:
+					if world.resource_manager.remove_resource("wood", 2):
+						if world.resource_manager.add_resource("lumber", 1):
+							produced = true
+						else:
+							world.resource_manager.add_resource("wood", 2)
+			"carpenter":
+				if world.resource_manager.get_amount("lumber") >= 2:
+					if world.resource_manager.remove_resource("lumber", 2):
+						if world.resource_manager.add_resource("furniture", 1):
+							produced = true
+						else:
+							world.resource_manager.add_resource("lumber", 2)
+
+		if produced:
+			building["last_revenue"] = 0
+			world.placed_buildings[building_index] = building
+			print("WOOD INDUSTRY PRODUCTION | ", building_id, " | Inventory: ", world.resource_manager.get_all_amounts())
+
+
+func _building_has_worker(world, building):
+	if world == null or world.citizen_system == null:
+		return false
+
+	var building_id = str(building.get("id", ""))
+	var building_grid = building.get("grid", Vector2.ZERO)
+
+	for citizen in world.citizen_system.citizens:
+		if str(citizen.get("job_id", "")) != building_id:
+			continue
+		if citizen.get("work_grid", Vector2(-999, -999)) == building_grid:
+			return true
+	return false
