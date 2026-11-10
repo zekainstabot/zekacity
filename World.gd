@@ -1079,6 +1079,7 @@ func _process(delta):
 
 	if mineral_market_system != null:
 		mineral_market_system.process_automatic_sales(delta, self)
+		mineral_market_system.process_market_supply(delta, self)
 
 	if world_ui_controller != null:
 		world_ui_controller.update_land_purchase_areas()
