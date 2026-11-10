@@ -582,21 +582,17 @@ func _draw_building_placement_preview(center):
 			tile_center + Vector2(-tile_width / 2.0, 0)
 		])
 		draw_colored_polygon(diamond, fill_color)
-		draw_polyline(diamond + PoolVector2Array([diamond[0]]), border_color, 2.0, true)
+		for edge_index in range(diamond.size()):
+			var next_index = (edge_index + 1) % diamond.size()
+			draw_line(
+				diamond[edge_index],
+				diamond[next_index],
+				border_color,
+				2.0,
+				true
+			)
 
-	var footprint = building_footprints.get_footprint(
-		selected_building_for_placement
-	)
-	var label_position = grid_to_screen(
-		origin + Vector2((footprint.x - 1.0) / 2.0, (footprint.y - 1.0) / 2.0),
-		center
-	) + Vector2(0, -tile_height)
-	draw_string(
-		get_font("font"),
-		label_position,
-		"READY" if valid else error,
-		border_color
-	)
+
 
 func _create_building_visual(index):
 	if building_visuals_root == null:
