@@ -6,8 +6,8 @@ extends Node2D
 # مدیریت مستقل اطلاعات ساختمان‌ها
 # =========================================
 
-var tile_width = 160
-var tile_height = 80
+var tile_width = 64
+var tile_height = 32
 var map_center = Vector2(600, 130)
 
 var placed_buildings = []
