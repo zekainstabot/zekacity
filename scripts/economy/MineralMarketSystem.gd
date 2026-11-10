@@ -1,6 +1,14 @@
 extends Reference
 
 const STORAGE_RESERVE = 50
+# Keep a small buffer of intermediate goods for downstream workshops.
+# Wood feeds sawmills; lumber feeds carpenters. These reserves prevent
+# automatic market sales from starving the production chain.
+const FORESTRY_RESERVES = {
+	"wood": 20,
+	"lumber": 10,
+	"furniture": 0
+}
 const MAX_SALES_PER_SECOND = 2.0
 const MAX_STOCK_PER_PRODUCT = 100
 const SUPPLY_INTERVAL = 30.0
@@ -116,7 +124,7 @@ func _process_resource_sale(resource_id, delta, world, market_index):
 		return
 
 	var current_amount = world.resource_manager.get_amount(resource_id)
-	var reserve = STORAGE_RESERVE if resource_id in ["stone", "iron_ore"] else 0
+	var reserve = _get_resource_reserve(resource_id)
 	var available = max(0, current_amount - reserve)
 
 	# موجودی به حد ذخیره رسیده؛ سهمیه قبلی پاک شود.
@@ -166,9 +174,16 @@ func _process_resource_sale(resource_id, delta, world, market_index):
 	# سهمیه فقط به اندازه فروش موفق مصرف می‌شود.
 	sale_accumulators[resource_id] -= amount_to_sell
 
-	# اگر موجودی به ذخیره ۵۰ رسید، سهمیه باقی‌مانده حذف شود.
+	# وقتی موجودی به حد ذخیرهٔ تعریف‌شده رسید، سهمیهٔ فروش پاک شود.
 	if world.resource_manager.get_amount(resource_id) <= reserve:
 		sale_accumulators[resource_id] = 0.0
+
+
+func _get_resource_reserve(resource_id):
+	if resource_id in ["stone", "iron_ore"]:
+		return STORAGE_RESERVE
+
+	return int(FORESTRY_RESERVES.get(resource_id, 0))
 
 
 func _get_forestry_producer_index(world, resource_id):
