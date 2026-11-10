@@ -464,16 +464,17 @@ func _write_save_file_atomic(data):
 		push_error("SaveSystem: Temporary save write failed: " + str(write_error))
 		return false
 
-	# Keep one known-good generation before replacing the main file.
+	# Rotate the backup only when a main save exists. If the main file
+	# is missing but a backup remains, never delete that last good copy.
 	var directory = Directory.new()
-	if directory.file_exists(BACKUP_SAVE_PATH):
-		var remove_error = directory.remove(BACKUP_SAVE_PATH)
-		if remove_error != OK:
-			directory.remove(TEMP_SAVE_PATH)
-			push_error("SaveSystem: Could not rotate backup: " + str(remove_error))
-			return false
-
 	if directory.file_exists(SAVE_PATH):
+		if directory.file_exists(BACKUP_SAVE_PATH):
+			var remove_error = directory.remove(BACKUP_SAVE_PATH)
+			if remove_error != OK:
+				directory.remove(TEMP_SAVE_PATH)
+				push_error("SaveSystem: Could not rotate backup: " + str(remove_error))
+				return false
+
 		var backup_error = directory.rename(SAVE_PATH, BACKUP_SAVE_PATH)
 		if backup_error != OK:
 			directory.remove(TEMP_SAVE_PATH)
@@ -564,10 +565,31 @@ func _read_valid_save(path):
 	for mountain in parsed.get("mountains", []):
 		if typeof(mountain) != TYPE_DICTIONARY:
 			return {}
+		if str(mountain.get("id", "")).strip_edges() == "":
+			return {}
 		if not _is_valid_vector_data(mountain.get("origin", null)):
 			return {}
 		if not _is_valid_vector_data(mountain.get("mine_point", null)):
 			return {}
+
+	for mine in parsed.get("mines", []):
+		if typeof(mine) != TYPE_DICTIONARY:
+			return {}
+		if str(mine.get("id", "")).strip_edges() == "":
+			return {}
+
+	for citizen in parsed.get("citizens", []):
+		if typeof(citizen) != TYPE_DICTIONARY:
+			return {}
+		if str(citizen.get("id", "")).strip_edges() == "":
+			return {}
+		if not _is_valid_vector_data(citizen.get("home_grid", null)):
+			return {}
+		if not _is_valid_vector_data(citizen.get("grid_pos", null)):
+			return {}
+		for vector_field in ["target_grid", "previous_grid", "work_grid"]:
+			if citizen.has(vector_field) and not _is_valid_vector_data(citizen[vector_field]):
+				return {}
 
 	return parsed
 
