@@ -11,6 +11,47 @@ const CATEGORY_RECREATION = "Recreation"
 const CATEGORY_ADVANCED = "Advanced"
 const CATEGORY_WAREHOUSES = "Warehouses"
 
+# Single source of truth for grid dimensions. Values are [width, height].
+# Add a new building's footprint here; all placement and construction UI
+# systems read the same dimensions through BuildingFootprints.gd.
+const BUILDING_LAYOUTS = {
+	"small_house": [1, 1],
+	"normal_house": [2, 2],
+	"low_apartment": [2, 2],
+	"high_apartment": [3, 2],
+	"residential_tower": [3, 3],
+	"grocery_store": [2, 2],
+	"bakery": [2, 2],
+	"restaurant": [2, 2],
+	"office": [2, 2],
+	"shopping_mall": [4, 3],
+	"factory": [3, 3],
+	"mineral_market": [2, 2],
+	"woodcutter": [2, 2],
+	"sawmill": [3, 2],
+	"carpenter": [2, 2],
+	"water_tower": [2, 2],
+	"power_station": [3, 3],
+	"sewage_plant": [3, 3],
+	"waste_facility": [3, 3],
+	"school": [3, 2],
+	"university": [4, 3],
+	"clinic": [2, 2],
+	"hospital": [3, 3],
+	"police_station": [2, 2],
+	"fire_station": [2, 2],
+	"city_hall": [3, 3],
+	"small_warehouse": [2, 2],
+	"medium_warehouse": [3, 2],
+	"large_warehouse": [3, 3],
+	"huge_warehouse": [4, 3],
+	"small_park": [2, 2],
+	"playground": [2, 2],
+	"sports_center": [3, 3],
+	"cultural_center": [3, 2]
+}
+
+
 # Building definitions
 const BUILDINGS = {
 	"small_house": {
