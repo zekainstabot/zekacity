@@ -172,33 +172,30 @@ func _pay_workers(workers, amount, wage_per_worker):
 	if workers.empty() or amount <= 0:
 		return 0
 
-	var remaining = int(amount)
-	var total_paid = 0
+	var total_amount = int(amount)
+	var base_share = int(floor(
+		float(total_amount) / float(workers.size())
+	))
+	var remainder = total_amount - base_share * workers.size()
 	var start_index = payroll_rotation % workers.size()
 
-	# Pay arrears fairly across all workers. The previous implementation
-	# paid the first worker(s) first and capped each worker at one period's
-	# wage, which could leave old arrears unpaid indefinitely.
-	while remaining > 0:
-		var paid_this_round = false
+	# Split both current wages and accumulated arrears evenly. Rotate
+	# the remainder so the same citizen is not always paid first.
+	for offset in range(workers.size()):
+		var worker_index = (start_index + offset) % workers.size()
+		var share = base_share
 
-		for offset in range(workers.size()):
-			if remaining <= 0:
-				break
+		if offset < remainder:
+			share += 1
 
-			var worker_index = (start_index + offset) % workers.size()
-			var citizen = workers[worker_index]
-			citizen["wallet"] = int(
-				citizen.get("wallet", 0)
-			) + 1
-			workers[worker_index] = citizen
+		if share <= 0:
+			continue
 
-			remaining -= 1
-			total_paid += 1
-			paid_this_round = true
-
-		if not paid_this_round:
-			break
+		var citizen = workers[worker_index]
+		citizen["wallet"] = int(
+			citizen.get("wallet", 0)
+		) + share
+		workers[worker_index] = citizen
 
 	payroll_rotation = (start_index + 1) % workers.size()
-	return total_paid
+	return total_amount
