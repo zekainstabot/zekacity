@@ -246,7 +246,9 @@ func _draw():
 		)
 
 	else:
-		if drawer != null:
+		if building_id in ["woodcutter", "sawmill", "carpenter"]:
+			_draw_wood_industry_building()
+		elif drawer != null:
 			drawer.draw_building(
 				self,
 				building_id,
@@ -289,3 +291,33 @@ func _draw_road_warning(target_size):
 
 func refresh_road_warning():
 	update()
+
+
+func _draw_wood_industry_building():
+	var base_color = Color(0.48, 0.31, 0.18)
+	var roof_color = Color(0.30, 0.19, 0.12)
+	if building_id == "sawmill":
+		base_color = Color(0.56, 0.43, 0.27)
+		roof_color = Color(0.38, 0.27, 0.16)
+	elif building_id == "carpenter":
+		base_color = Color(0.66, 0.48, 0.28)
+		roof_color = Color(0.43, 0.29, 0.17)
+
+	draw_colored_polygon(PoolVector2Array([
+		Vector2(-38, 0), Vector2(0, 18),
+		Vector2(0, -30), Vector2(-38, -48)
+	]), base_color.darkened(0.12))
+	draw_colored_polygon(PoolVector2Array([
+		Vector2(0, 18), Vector2(38, 0),
+		Vector2(38, -48), Vector2(0, -30)
+	]), base_color)
+	draw_colored_polygon(PoolVector2Array([
+		Vector2(-40, -48), Vector2(0, -70),
+		Vector2(40, -48), Vector2(0, -28)
+	]), roof_color)
+	draw_rect(Rect2(Vector2(-25, -28), Vector2(12, 14)), Color(0.25, 0.16, 0.10))
+	draw_rect(Rect2(Vector2(8, -35), Vector2(15, 12)), Color(0.70, 0.83, 0.82))
+	if building_id == "sawmill":
+		draw_rect(Rect2(Vector2(-12, -15), Vector2(24, 8)), Color(0.76, 0.62, 0.38))
+	elif building_id == "carpenter":
+		draw_rect(Rect2(Vector2(-12, -18), Vector2(24, 11)), Color(0.40, 0.25, 0.13))
