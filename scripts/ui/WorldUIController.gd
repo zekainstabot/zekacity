@@ -78,7 +78,7 @@ func _update_treasury_label_layout():
 	if treasury_label == null or ui == null:
 		return
 
-	var viewport_size = ui.get_viewport_rect().size
+	var viewport_size = ui.get_viewport().get_visible_rect().size
 	var label_width = max(150.0, min(360.0, viewport_size.x - 150.0))
 
 	treasury_label.rect_position = Vector2(130, 10)
