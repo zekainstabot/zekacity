@@ -5,6 +5,8 @@ extends Reference
 # ذخیره و بارگذاری پیشرفت شهر
 
 const SAVE_PATH = "user://zeka_city_save.json"
+const TEMP_SAVE_PATH = "user://zeka_city_save.tmp"
+const BACKUP_SAVE_PATH = "user://zeka_city_save.backup.json"
 const SAVE_VERSION = 1
 
 
@@ -167,16 +169,11 @@ func save_world(world):
 	if world.citizen_system != null:
 		data["citizens"] = world.citizen_system.get_save_data()
 
-	# نوشتن فایل ذخیره
-	var file = File.new()
-	var error = file.open(SAVE_PATH, File.WRITE)
-
-	if error != OK:
-		push_error("SaveSystem: Could not open save file")
+	# نوشتن امن: ابتدا فایل موقت ساخته و بررسی می‌شود.
+	# فایل ذخیره قبلی تا موفقیت کامل نوشتن حفظ خواهد شد.
+	if not _write_save_file_atomic(data):
+		push_error("SaveSystem: Atomic save failed; previous save was preserved")
 		return false
-
-	file.store_string(to_json(data))
-	file.close()
 
 	print("CITY SAVED SUCCESSFULLY")
 	return true
@@ -186,27 +183,18 @@ func load_world(world):
 	if world == null:
 		return false
 
-	var file = File.new()
+	var data = _read_valid_save(SAVE_PATH)
 
-	if not file.file_exists(SAVE_PATH):
-		print("SaveSystem: No previous save found")
-		return false
+	if data.empty():
+		push_warning("SaveSystem: Main save is invalid; trying backup")
+		data = _read_valid_save(BACKUP_SAVE_PATH)
 
-	if file.open(SAVE_PATH, File.READ) != OK:
-		push_error("SaveSystem: Could not read save file")
-		return false
-
-	var save_text = file.get_as_text()
-	file.close()
-
-	var data = parse_json(save_text)
-
-	if typeof(data) != TYPE_DICTIONARY:
-		push_error("SaveSystem: Save file is invalid")
-		return false
-
-	if int(data.get("version", 0)) != SAVE_VERSION:
-		push_error("SaveSystem: Unsupported save version")
+	if data.empty():
+		var file_check = File.new()
+		if file_check.file_exists(SAVE_PATH) or file_check.file_exists(BACKUP_SAVE_PATH):
+			push_error("SaveSystem: No valid save or backup could be loaded")
+		else:
+			print("SaveSystem: No previous save found")
 		return false
 
 	# بازیابی پول شخصی بازیکن
@@ -451,6 +439,109 @@ func load_world(world):
 
 	print("CITY LOADED SUCCESSFULLY")
 	return true
+
+
+# --------------------------------------------------
+# SAFE SAVE / RECOVERY
+# --------------------------------------------------
+
+func _write_save_file_atomic(data):
+	var file = File.new()
+	var error = file.open(TEMP_SAVE_PATH, File.WRITE)
+
+	if error != OK:
+		push_error("SaveSystem: Could not open temporary save file: " + str(error))
+		return false
+
+	file.store_string(to_json(data))
+	file.flush()
+	var write_error = file.get_error()
+	file.close()
+
+	if write_error != OK:
+		var cleanup = Directory.new()
+		cleanup.remove(TEMP_SAVE_PATH)
+		push_error("SaveSystem: Temporary save write failed: " + str(write_error))
+		return false
+
+	# Keep one known-good generation before replacing the main file.
+	var directory = Directory.new()
+	if directory.file_exists(BACKUP_SAVE_PATH):
+		var remove_error = directory.remove(BACKUP_SAVE_PATH)
+		if remove_error != OK:
+			directory.remove(TEMP_SAVE_PATH)
+			push_error("SaveSystem: Could not rotate backup: " + str(remove_error))
+			return false
+
+	if directory.file_exists(SAVE_PATH):
+		var backup_error = directory.rename(SAVE_PATH, BACKUP_SAVE_PATH)
+		if backup_error != OK:
+			directory.remove(TEMP_SAVE_PATH)
+			push_error("SaveSystem: Could not preserve previous save: " + str(backup_error))
+			return false
+
+	var replace_error = directory.rename(TEMP_SAVE_PATH, SAVE_PATH)
+	if replace_error != OK:
+		# Restore the previous save if the new file could not be installed.
+		if directory.file_exists(BACKUP_SAVE_PATH) and not directory.file_exists(SAVE_PATH):
+			directory.rename(BACKUP_SAVE_PATH, SAVE_PATH)
+
+		directory.remove(TEMP_SAVE_PATH)
+		push_error("SaveSystem: Could not install new save: " + str(replace_error))
+		return false
+
+	return true
+
+
+func _read_valid_save(path):
+	var file = File.new()
+
+	if not file.file_exists(path):
+		return {}
+
+	if file.open(path, File.READ) != OK:
+		return {}
+
+	var save_text = file.get_as_text()
+	file.close()
+
+	var parsed = parse_json(save_text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {}
+
+	if int(parsed.get("version", 0)) != SAVE_VERSION:
+		return {}
+
+	# Validate collection types before load_world mutates the running city.
+	var array_fields = [
+		"placed_buildings",
+		"owned_tiles",
+		"roads",
+		"mountains",
+		"mines",
+		"citizens"
+	]
+
+	for field in array_fields:
+		if parsed.has(field) and typeof(parsed[field]) != TYPE_ARRAY:
+			return {}
+
+	var dictionary_fields = [
+		"treasury",
+		"resources",
+		"mineral_market",
+		"mineral_market_sale_accumulators"
+	]
+
+	for field in dictionary_fields:
+		if parsed.has(field) and typeof(parsed[field]) != TYPE_DICTIONARY:
+			return {}
+
+	if parsed.has("grid_size"):
+		if int(parsed["grid_size"]) < 1:
+			return {}
+
+	return parsed
 
 
 func _vector_to_data(value):
