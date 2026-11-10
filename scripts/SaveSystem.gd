@@ -424,6 +424,9 @@ func load_world(world):
 						)
 					}
 
+		# Rebuild individual depth-sorted mountain visuals from the
+		# restored save data (the initial random mountain layout is obsolete).
+		mountain_system._refresh_mountain_visuals()
 		mountain_system.update()
 
 	# Restore the saved forest instead of generating a new tree layout.
