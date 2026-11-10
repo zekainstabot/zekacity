@@ -30,7 +30,7 @@ var save_system = preload(
 ).new()
 
 var autosave_elapsed = 0.0
-var autosave_interval = 600.0
+var autosave_interval = 60.0
 
 var business_economy_system = preload(
 	"res://scripts/economy/BusinessEconomySystem.gd"
