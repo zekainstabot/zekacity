@@ -170,6 +170,9 @@ var building_names = {
 	"shopping_mall": "Shopping Mall",
 	"factory": "Factory",
 	"mineral_market": "Mineral Market",
+	"woodcutter": "Woodcutter",
+	"sawmill": "Sawmill",
+	"carpenter": "Carpentry Workshop",
 	"water_tower": "Water Tower",
 	"power_station": "Power Station",
 	"sewage_plant": "Sewage Plant",
@@ -592,7 +595,10 @@ func _draw_building(building_id, grid_pos, center):
 		"office",
 		"shopping_mall",
 		"factory",
-		"mineral_market"
+		"mineral_market",
+		"woodcutter",
+		"sawmill",
+		"carpenter"
 	]:
 		commercial_buildings.draw_building(
 			self,
