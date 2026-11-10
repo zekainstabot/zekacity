@@ -541,7 +541,49 @@ func _read_valid_save(path):
 		if int(parsed["grid_size"]) < 1:
 			return {}
 
+	# Reject structurally damaged records before they can be converted
+	# into Vector2.ZERO and accidentally place data at the map origin.
+	for building in parsed.get("placed_buildings", []):
+		if typeof(building) != TYPE_DICTIONARY:
+			return {}
+		if str(building.get("id", "")).strip_edges() == "":
+			return {}
+		if not _is_valid_vector_data(building.get("grid", null)):
+			return {}
+
+	for tile in parsed.get("owned_tiles", []):
+		if not _is_valid_vector_data(tile):
+			return {}
+
+	for road in parsed.get("roads", []):
+		if typeof(road) != TYPE_DICTIONARY:
+			return {}
+		if not _is_valid_vector_data(road.get("grid", null)):
+			return {}
+
+	for mountain in parsed.get("mountains", []):
+		if typeof(mountain) != TYPE_DICTIONARY:
+			return {}
+		if not _is_valid_vector_data(mountain.get("origin", null)):
+			return {}
+		if not _is_valid_vector_data(mountain.get("mine_point", null)):
+			return {}
+
 	return parsed
+
+
+func _is_valid_vector_data(value):
+	if typeof(value) != TYPE_DICTIONARY:
+		return false
+
+	if not value.has("x") or not value.has("y"):
+		return false
+
+	var x_type = typeof(value["x"])
+	var y_type = typeof(value["y"])
+
+	var numeric_types = [TYPE_INT, TYPE_REAL]
+	return x_type in numeric_types and y_type in numeric_types
 
 
 func _vector_to_data(value):
