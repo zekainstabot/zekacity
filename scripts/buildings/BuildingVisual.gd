@@ -86,7 +86,8 @@ func setup(
 					"bounds": visible_bounds
 				}
 	else:
-		push_warning("No texture loaded for building: " + building_id)
+		if building_id not in ["woodcutter", "sawmill", "carpenter"]:
+			push_warning("No texture loaded for building: " + building_id)
 
 	var footprint = Vector2.ONE
 
