@@ -109,6 +109,9 @@ func _ready():
 
 
 func _process(_delta):
+	# Refresh the decorative skyline highlight while resources load.
+	update()
+
 	if loader == null or loading_failed or launch_started:
 		return
 
