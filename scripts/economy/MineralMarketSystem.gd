@@ -161,18 +161,64 @@ func _add_business_revenue(world, market_index, revenue):
 	world.placed_buildings[market_index] = building
 
 
-# فروش دستی غیرفعال است.
-func receive_from_municipal_storage(resource_manager, resource_id, amount, treasury):
+# Transfer from the market's saved stock to a citizen.
+func sell_to_customer(resource_id, amount, wallet, building):
+	if not PRODUCTS.has(resource_id):
+		return {
+			"success": false,
+			"error": "UNKNOWN_PRODUCT"
+		}
+
+	if typeof(building) != TYPE_DICTIONARY:
+		return {
+			"success": false,
+			"error": "INVALID_MARKET"
+		}
+
+	var quantity = int(amount)
+	if quantity <= 0:
+		return {
+			"success": false,
+			"error": "INVALID_AMOUNT"
+		}
+
+	var available = get_stock(resource_id)
+	if available < quantity:
+		return {
+			"success": false,
+			"error": "OUT_OF_STOCK"
+		}
+
+	var total_cost = get_sell_price(resource_id) * quantity
+	if int(wallet) < total_cost:
+		return {
+			"success": false,
+			"error": "INSUFFICIENT_FUNDS"
+		}
+
+	stock[resource_id] = available - quantity
+
+	building["business_balance"] = int(
+		building.get("business_balance", 0)
+	) + total_cost
+	building["last_revenue"] = total_cost
+	building["total_revenue"] = int(
+		building.get("total_revenue", 0)
+	) + total_cost
+
 	return {
-		"success": false,
-		"error": "MANUAL_SALE_DISABLED"
+		"success": true,
+		"cost": total_cost,
+		"remaining_money": int(wallet) - total_cost
 	}
 
 
-func sell_to_customer(resource_id, amount, building):
+# Municipal-to-market supply remains disabled until its pricing and
+# inventory-transfer rules are exposed in the market UI.
+func receive_from_municipal_storage(resource_manager, resource_id, amount, treasury):
 	return {
 		"success": false,
-		"error": "MANUAL_SALE_DISABLED"
+		"error": "SUPPLY_TRANSFER_NOT_CONFIGURED"
 	}
 
 
