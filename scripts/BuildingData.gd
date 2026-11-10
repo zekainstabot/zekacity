@@ -107,6 +107,28 @@ const BUILDINGS = {
 		"cost": 6000
 	},
 
+	"woodcutter": {
+		"name": "Woodcutter",
+		"category": CATEGORY_BUSINESS,
+		"stage": 2,
+		"population_required": 8,
+		"cost": 900
+	},
+	"sawmill": {
+		"name": "Sawmill",
+		"category": CATEGORY_BUSINESS,
+		"stage": 3,
+		"population_required": 20,
+		"cost": 1800
+	},
+	"carpenter": {
+		"name": "Carpentry Workshop",
+		"category": CATEGORY_ADVANCED,
+		"stage": 3,
+		"population_required": 35,
+		"cost": 2600
+	},
+
 	"water_tower": {
 		"name": "Water Tower",
 		"category": CATEGORY_UTILITIES,
