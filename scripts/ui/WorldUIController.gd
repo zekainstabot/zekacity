@@ -7,6 +7,7 @@ extends Reference
 var world = null
 var ui = null
 var treasury_label = null
+var treasury_font = null
 var buy_land_button = null
 var land_purchase_dialog = null
 
@@ -46,10 +47,10 @@ func _create_treasury_label():
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
 	if ResourceLoader.exists(font_path):
-		var money_font = DynamicFont.new()
-		money_font.font_data = load(font_path)
-		money_font.size = 40
-		treasury_label.add_font_override("font", money_font)
+		treasury_font = DynamicFont.new()
+		treasury_font.font_data = load(font_path)
+		treasury_font.size = 34
+		treasury_label.add_font_override("font", treasury_font)
 
 	treasury_label.add_color_override(
 		"font_color",
@@ -77,14 +78,24 @@ func _update_treasury_label_layout():
 	if treasury_label == null or ui == null:
 		return
 
-	treasury_label.rect_position = Vector2(130, 12)
+	var viewport_size = ui.get_viewport_rect().size
+	var label_width = max(150.0, min(360.0, viewport_size.x - 150.0))
+
+	treasury_label.rect_position = Vector2(130, 10)
 
 	treasury_label.anchor_left = 0.0
 	treasury_label.anchor_top = 0.0
 	treasury_label.anchor_right = 0.0
 	treasury_label.anchor_bottom = 0.0
 
-	treasury_label.rect_size = Vector2(288, 44)
+	treasury_label.rect_size = Vector2(label_width, 42)
+
+	if treasury_font != null:
+		treasury_font.size = int(clamp(
+			viewport_size.x * 0.034,
+			20.0,
+			34.0
+		))
 
 func _create_land_purchase_dialog():
 	land_purchase_dialog = ConfirmationDialog.new()
