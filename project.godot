@@ -11,7 +11,7 @@ config_version=4
 [application]
 
 config/name="ZekaCity"
-run/main_scene="res://Main.tscn"
+run/main_scene="res://Boot.tscn"
 config/icon="res://icon.png"
 
 [autoload]
