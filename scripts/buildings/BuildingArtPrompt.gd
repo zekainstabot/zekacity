@@ -47,7 +47,6 @@ const BUILDING_DESCRIPTIONS = {
 	"small_park": "A compact landscaped neighborhood park asset, a small pavilion or gazebo, benches and a few carefully grouped shrubs; keep it as one self-contained park asset.",
 	"playground": "A compact children's playground asset, colorful climbing frame, slide and swings arranged as one coherent small facility, no people.",
 	"sports_center": "A medium indoor sports center, broad gymnasium volume, high roof, repeated clerestory windows and a clear public entrance.",
-	"university": "A substantial university academic building, multi-wing campus architecture, grand entrance, repeated windows, refined stone and brick details.",
 	"cultural_center": "A modern cultural center, expressive civic architecture, gallery windows, auditorium volume and a distinctive but practical roofline.",
 	"small_warehouse": "A small storage warehouse, simple industrial shed, one loading door and corrugated or panel-clad walls.",
 	"medium_warehouse": "A medium logistics warehouse, broad rectangular storage hall, two loading bays, practical industrial roof.",
