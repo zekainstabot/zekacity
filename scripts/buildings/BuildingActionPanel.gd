@@ -193,9 +193,61 @@ func show_for_building(building_name, target_world = null, building_id = ""):
 
 		storage_info_label.visible = true
 
+	# Show the same accounting summary for every business, including
+	# the mineral market, without inventing revenue or product prices.
+	if target_world != null and _is_business_building(building_id):
+		_update_business_finance_info(target_world)
+		storage_info_label.visible = true
+
 	_update_panel_layout()
 	panel.visible = true
 	panel.raise()
+
+
+func _is_business_building(building_id):
+	return str(building_id) in [
+		"grocery_store",
+		"bakery",
+		"restaurant",
+		"office",
+		"mineral_market",
+		"shopping_mall",
+		"factory"
+	]
+
+
+func _update_business_finance_info(target_world):
+	var index = int(target_world.get("selected_building_index"))
+
+	if index < 0 or index >= target_world.placed_buildings.size():
+		return
+
+	var building = target_world.placed_buildings[index]
+	var building_id = str(building.get("id", ""))
+	var building_grid = building.get("grid", Vector2.ZERO)
+	var worker_count = 0
+
+	if target_world.citizen_system != null:
+		for citizen in target_world.citizen_system.citizens:
+			if str(citizen.get("job_id", "")) != building_id:
+				continue
+			if citizen.get("work_grid", Vector2(-999, -999)) != building_grid:
+				continue
+			worker_count += 1
+
+	var finance_text = (
+		"\n\nBusiness finances:\n"
+		+ "Employees: %d\n" % worker_count
+		+ "Available business balance: $%d\n" % int(building.get("business_balance", 0))
+		+ "Unpaid wages: $%d\n" % int(building.get("unpaid_wages", 0))
+		+ "Last revenue: $%d\n" % int(building.get("last_revenue", 0))
+		+ "Last wages paid: $%d\n" % int(building.get("last_wages", 0))
+		+ "Total revenue: $%d\n" % int(building.get("total_revenue", 0))
+		+ "Total wages: $%d\n" % int(building.get("total_wages", 0))
+		+ "Total transferred to treasury: $%d" % int(building.get("total_profit", 0))
+	)
+
+	storage_info_label.text += finance_text
 
 
 func _is_warehouse(building_id):
