@@ -179,10 +179,42 @@ func _get_forestry_producer_index(world, resource_id):
 	}.get(resource_id, "")
 	if producer_id == "":
 		return -1
+
+	# Only staffed producers receive wholesale payment. When several
+	# workshops produce the same resource, send the next sale to the
+	# producer with the smallest current balance to distribute income.
+	var selected_index = -1
+	var lowest_balance = 0
+
 	for i in range(world.placed_buildings.size()):
-		if str(world.placed_buildings[i].get("id", "")) == producer_id:
-			return i
-	return -1
+		var building = world.placed_buildings[i]
+		if str(building.get("id", "")) != producer_id:
+			continue
+		if not _building_has_worker(world, building):
+			continue
+
+		var balance = int(building.get("business_balance", 0))
+		if selected_index == -1 or balance < lowest_balance:
+			selected_index = i
+			lowest_balance = balance
+
+	return selected_index
+
+
+func _building_has_worker(world, building):
+	if world == null or world.citizen_system == null:
+		return false
+
+	var building_id = str(building.get("id", ""))
+	var building_grid = building.get("grid", Vector2.ZERO)
+
+	for citizen in world.citizen_system.citizens:
+		if str(citizen.get("job_id", "")) != building_id:
+			continue
+		if citizen.get("work_grid", Vector2(-999, -999)) == building_grid:
+			return true
+
+	return false
 
 
 func _find_mineral_market(world):
