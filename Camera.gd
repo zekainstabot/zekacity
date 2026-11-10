@@ -17,35 +17,34 @@ func _ready():
 	zoom = Vector2.ONE
 
 
-func _is_over_construction_panel(screen_position):
+func _is_over_ui(screen_position):
 	var root = get_tree().get_root()
-	var construction_ui = root.find_node(
-		"ConstructionUI", true, false
-	)
+	var ui = root.find_node("UI", true, false)
 
-	if construction_ui == null:
+	if ui == null:
 		return false
 
-	if not construction_ui.is_visible_in_tree():
-		return false
+	return _node_has_interactive_control_at(ui, screen_position)
 
-	var panel = construction_ui.get_node_or_null(
-		"ConstructionPanel"
-	)
 
-	if panel == null:
-		return false
+func _node_has_interactive_control_at(node, screen_position):
+	if node is Control:
+		if node.is_visible_in_tree():
+			if node.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+				if node.get_global_rect().has_point(screen_position):
+					return true
 
-	if not panel.is_visible_in_tree():
-		return false
+	for child in node.get_children():
+		if _node_has_interactive_control_at(child, screen_position):
+			return true
 
-	return panel.get_global_rect().has_point(screen_position)
+	return false
 
 
 func _input(event):
 	# Mouse controls
 	if event is InputEventMouseButton:
-		if _is_over_construction_panel(event.position):
+		if _is_over_ui(event.position):
 			if event.button_index == BUTTON_LEFT:
 				dragging = false
 			return
