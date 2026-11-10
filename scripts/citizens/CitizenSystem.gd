@@ -1334,7 +1334,10 @@ func _process_citizen_shopping():
 
 		var products = [
 			"stone",
-			"iron_ore"
+			"iron_ore",
+			"wood",
+			"lumber",
+			"furniture"
 		]
 
 		var product_id = products[
