@@ -37,7 +37,10 @@ const PRODUCTS = {
 # موجودی قدیمی بازار برای سازگاری با SaveSystem حفظ شده است.
 var stock = {
 	"stone": 0,
-	"iron_ore": 0
+	"iron_ore": 0,
+	"wood": 0,
+	"lumber": 0,
+	"furniture": 0
 }
 
 # سهمیه فروش هر ماده مستقل است.
@@ -126,28 +129,54 @@ func _process_resource_sale(resource_id, delta, world, market_index):
 	if amount_to_sell <= 0:
 		return
 
-	var sold = world.resource_manager.remove_resource(
-		resource_id,
-		amount_to_sell
-	)
+	var producer_index = _get_forestry_producer_index(world, resource_id)
+	var forestry_product = producer_index >= 0
+	var unit_price = get_price(resource_id) if forestry_product else get_sell_price(resource_id)
 
-	if not sold:
+	if forestry_product:
+		var market_room = MAX_STOCK_PER_PRODUCT - get_stock(resource_id)
+		amount_to_sell = min(amount_to_sell, max(0, market_room))
+		if world.city_treasury == null:
+			return
+		var affordable = int(floor(float(world.city_treasury.get_available_money()) / float(unit_price)))
+		amount_to_sell = min(amount_to_sell, affordable)
+
+	if amount_to_sell <= 0:
 		return
+
+	var total_revenue = amount_to_sell * unit_price
+	if not world.resource_manager.remove_resource(resource_id, amount_to_sell):
+		return
+
+	if forestry_product:
+		if not world.city_treasury.spend(total_revenue):
+			world.resource_manager.add_resource(resource_id, amount_to_sell)
+			return
+		stock[resource_id] = get_stock(resource_id) + amount_to_sell
+		_add_business_revenue(world, producer_index, total_revenue)
+	else:
+		_add_business_revenue(world, market_index, total_revenue)
 
 	# سهمیه فقط به اندازه فروش موفق مصرف می‌شود.
 	sale_accumulators[resource_id] -= amount_to_sell
 
-	var revenue = amount_to_sell * get_sell_price(resource_id)
-
-	_add_business_revenue(
-		world,
-		market_index,
-		revenue
-	)
-
 	# اگر موجودی به ذخیره ۵۰ رسید، سهمیه باقی‌مانده حذف شود.
 	if world.resource_manager.get_amount(resource_id) <= reserve:
 		sale_accumulators[resource_id] = 0.0
+
+
+func _get_forestry_producer_index(world, resource_id):
+	var producer_id = {
+		"wood": "woodcutter",
+		"lumber": "sawmill",
+		"furniture": "carpenter"
+	}.get(resource_id, "")
+	if producer_id == "":
+		return -1
+	for i in range(world.placed_buildings.size()):
+		if str(world.placed_buildings[i].get("id", "")) == producer_id:
+			return i
+	return -1
 
 
 func _find_mineral_market(world):
@@ -256,6 +285,8 @@ func process_market_supply(delta, world):
 	supply_elapsed = 0.0
 
 	for resource_id in PRODUCTS.keys():
+		if resource_id in ["wood", "lumber", "furniture"]:
+			continue
 		receive_from_municipal_storage(
 			world.resource_manager,
 			resource_id,
