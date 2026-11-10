@@ -300,6 +300,12 @@ func _ready():
 			ui
 		)
 
+	var forest_system = get_node_or_null("../ForestSystem")
+	if forest_system == null:
+		push_error("ForestSystem node NOT FOUND")
+	else:
+		forest_system.initialize(self)
+
 	submenu_menu = PopupMenu.new()
 	submenu_menu.name = "BuildingSubmenu"
 	submenu_menu.set_as_toplevel(true)
