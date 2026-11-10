@@ -205,7 +205,7 @@ func _draw():
 
 		var draw_position = Vector2(
 			-visible_bounds.get_center().x * scale_factor,
-			-visible_bounds.end.y * -scale_factor + GROUND_OFFSET_Y
+			-visible_bounds.end.y * scale_factor + GROUND_OFFSET_Y
 		)
 
 		draw_set_transform(
