@@ -467,6 +467,74 @@ func _get_home_adjacent_roads(citizen):
 	return result
 
 
+func _get_building_adjacent_roads(building_id, building_grid):
+	var result = []
+	var road_tiles = _get_road_tiles()
+	var footprint = _get_building_footprint(building_id)
+	var directions = [
+		Vector2(1, 0),
+		Vector2(-1, 0),
+		Vector2(0, 1),
+		Vector2(0, -1)
+	]
+
+	for x in range(int(footprint.x)):
+		for y in range(int(footprint.y)):
+			var tile = building_grid + Vector2(x, y)
+
+			for direction in directions:
+				var road_grid = tile + direction
+				if road_tiles.has(road_grid) and not result.has(road_grid):
+					result.append(road_grid)
+
+	return result
+
+
+func _has_commute_route(citizen, workplace_id, workplace_grid):
+	var home_roads = _get_home_adjacent_roads(citizen)
+	var work_roads = _get_building_adjacent_roads(
+		workplace_id,
+		workplace_grid
+	)
+
+	if home_roads.empty() or work_roads.empty():
+		return false
+
+	var road_tiles = _get_road_tiles()
+	var queue = []
+	var visited = []
+
+	for road_grid in home_roads:
+		if road_tiles.has(road_grid) and not visited.has(road_grid):
+			queue.append(road_grid)
+			visited.append(road_grid)
+
+	while not queue.empty():
+		var current = queue.pop_front()
+
+		if work_roads.has(current):
+			return true
+
+		var neighbors = [
+			current + Vector2(1, 0),
+			current + Vector2(0, 1),
+			current + Vector2(-1, 0),
+			current + Vector2(0, -1)
+		]
+
+		for neighbor in neighbors:
+			if not road_tiles.has(neighbor) or visited.has(neighbor):
+				continue
+
+			if not _has_road_connection(current, neighbor):
+				continue
+
+			visited.append(neighbor)
+			queue.append(neighbor)
+
+	return false
+
+
 func _find_path_to_home(citizen):
 	var start = citizen.get("grid_pos", Vector2.ZERO)
 	var goals = _get_home_adjacent_roads(citizen)
@@ -972,6 +1040,15 @@ func _sync_jobs():
 				if job["grid"] != old_work_grid:
 					continue
 
+				# Keep an existing job only while a continuous road
+				# route still connects the citizen's home and workplace.
+				if not _has_commute_route(
+					citizen,
+					str(job["building_id"]),
+					job["grid"]
+				):
+					continue
+
 				job["occupied"] = true
 				job_preserved = true
 				break
@@ -989,6 +1066,15 @@ func _sync_jobs():
 
 		for job in available_jobs:
 			if job["occupied"]:
+				continue
+
+			# Do not employ a resident at a workplace that cannot
+			# be reached from their home through connected roads.
+			if not _has_commute_route(
+				citizen,
+				str(job["building_id"]),
+				job["grid"]
+			):
 				continue
 
 			job["occupied"] = true
