@@ -118,7 +118,7 @@ func _process_resource_sale(resource_id, delta, world, market_index):
 		sale_accumulators[resource_id] = 0.0
 		return
 
-	sale_accumulators[resource_id] += delta * MAX_SALES_PER_SECOND
+	sale_accumulators[resource_id] = min(5.0, sale_accumulators[resource_id] + delta * MAX_SALES_PER_SECOND)
 
 	var amount_due = int(floor(sale_accumulators[resource_id]))
 	if amount_due <= 0:
