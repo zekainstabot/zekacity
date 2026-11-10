@@ -239,7 +239,8 @@ func process_wood_industry(world):
 		match building_id:
 			"woodcutter":
 				# Reserve storage first; never remove a tree if logs cannot fit.
-				if world.resource_manager.add_resource("wood", 2):
+				var free_capacity = world.storage_system.get_free_capacity(world.resource_manager) if world.storage_system != null else 999999
+				if free_capacity >= 2 and world.resource_manager.add_resource("wood", 2):
 					if forest.harvest_near(building.get("grid", Vector2.ZERO), 6):
 						produced = true
 					else:
