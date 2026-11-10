@@ -30,6 +30,15 @@ func draw_building(canvas, building_id, pos):
 		"mineral_market":
 			_draw_shop(canvas, pos, Color(0.65, 0.62, 0.82))
 
+		"woodcutter":
+			_draw_shop(canvas, pos, Color(0.30, 0.52, 0.28))
+
+		"sawmill":
+			_draw_factory(canvas, pos)
+
+		"carpenter":
+			_draw_shop(canvas, pos, Color(0.66, 0.43, 0.22))
+
 
 # =========================================
 # SHOPS AND RESTAURANTS
