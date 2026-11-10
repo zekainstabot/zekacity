@@ -106,8 +106,12 @@ func setup(
 			Vector2(600, 130)
 		) + Vector2(0, ground_offset)
 
-		# Stable draw ordering from the footprint's center.
-		z_index = int(round(visual_grid_pos.x + visual_grid_pos.y))
+		# Sort by the south-most ground-contact point of the full
+		# footprint. This keeps large buildings behind objects that are
+		# physically in front of them, regardless of creation order.
+		# Use projected screen Y so every tile-depth step has the same
+		# ordering scale as the isometric renderer.
+		z_index = int(clamp(round(position.y), -4096, 4096))
 
 	modulate = Color(1, 1, 1, visual_alpha)
 	update()
