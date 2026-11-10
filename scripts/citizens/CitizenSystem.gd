@@ -70,7 +70,27 @@ func _process(delta):
 				if visuals.has(citizen_id):
 					visuals[citizen_id].visible = true
 
-				_choose_next_target(citizen)
+				if not _begin_commute_to_work(citizen):
+					_choose_next_target(citizen)
+
+				_update_citizen_visual(citizen)
+
+			continue
+
+		# Workers spend a short shift at their workplace before
+		# following the connected road network back home.
+		if citizen["at_work"]:
+			citizen["work_timer"] -= delta
+
+			if citizen["work_timer"] <= 0.0:
+				citizen["at_work"] = false
+				if not _begin_return_home(citizen):
+					citizen["home_visit_timer"] = rng.randf_range(
+						HOME_VISIT_INTERVAL_MIN,
+						HOME_VISIT_INTERVAL_MAX
+					)
+					_choose_next_target(citizen)
+
 				_update_citizen_visual(citizen)
 
 			continue
@@ -84,6 +104,11 @@ func _process(delta):
 
 			if citizen["returning_home"]:
 				_continue_return_home(citizen)
+				_update_citizen_visual(citizen)
+				continue
+
+			if citizen["commuting_to_work"]:
+				_continue_commute_to_work(citizen)
 				_update_citizen_visual(citizen)
 				continue
 
@@ -120,6 +145,8 @@ func _process(delta):
 
 			if citizen["returning_home"]:
 				_continue_return_home(citizen)
+			elif citizen["commuting_to_work"]:
+				_continue_commute_to_work(citizen)
 			else:
 				_choose_next_target(citizen)
 
@@ -150,6 +177,15 @@ func _initialize_citizen_state(citizen):
 
 	if not citizen.has("returning_home"):
 		citizen["returning_home"] = false
+
+	if not citizen.has("commuting_to_work"):
+		citizen["commuting_to_work"] = false
+
+	if not citizen.has("at_work"):
+		citizen["at_work"] = false
+
+	if not citizen.has("work_timer"):
+		citizen["work_timer"] = 0.0
 
 	if not citizen.has("home_timer"):
 		citizen["home_timer"] = 0.0
@@ -535,6 +571,119 @@ func _has_commute_route(citizen, workplace_id, workplace_grid):
 	return false
 
 
+func _find_path_between_road_sets(start_roads, goal_roads):
+	var road_tiles = _get_road_tiles()
+	if start_roads.empty() or goal_roads.empty():
+		return []
+
+	var queue = []
+	var came_from = {}
+	var visited = []
+
+	for start in start_roads:
+		if road_tiles.has(start) and not visited.has(start):
+			queue.append(start)
+			visited.append(start)
+			came_from[start] = start
+
+	while not queue.empty():
+		var current = queue.pop_front()
+
+		if goal_roads.has(current):
+			var path = [current]
+			var step = current
+
+			while came_from[step] != step:
+				step = came_from[step]
+				path.push_front(step)
+
+			return path
+
+		var neighbors = [
+			current + Vector2(1, 0),
+			current + Vector2(0, 1),
+			current + Vector2(-1, 0),
+			current + Vector2(0, -1)
+		]
+
+		for neighbor in neighbors:
+			if not road_tiles.has(neighbor) or visited.has(neighbor):
+				continue
+			if not _has_road_connection(current, neighbor):
+				continue
+
+			visited.append(neighbor)
+			came_from[neighbor] = current
+			queue.append(neighbor)
+
+	return []
+
+
+func _find_path_to_work(citizen):
+	var start = citizen.get("grid_pos", Vector2.ZERO)
+	if not _has_road_at(start):
+		return []
+
+	var work_roads = _get_building_adjacent_roads(
+		str(citizen.get("job_id", "")),
+		citizen.get("work_grid", Vector2.ZERO)
+	)
+
+	return _find_path_between_road_sets([start], work_roads)
+
+
+func _begin_commute_to_work(citizen):
+	if str(citizen.get("job_id", "")) == "":
+		return false
+
+	var path = _find_path_to_work(citizen)
+	if path.empty():
+		return false
+
+	citizen["commuting_to_work"] = true
+	citizen["returning_home"] = false
+	citizen["move_progress"] = 0.0
+
+	if path.size() <= 1:
+		_enter_workplace(citizen)
+		return true
+
+	citizen["target_grid"] = path[1]
+	citizen["move_duration"] = 1.0
+	return true
+
+
+func _continue_commute_to_work(citizen):
+	var path = _find_path_to_work(citizen)
+
+	if path.empty():
+		citizen["commuting_to_work"] = false
+		citizen["job_id"] = ""
+		citizen["work_grid"] = citizen.get("home_grid", Vector2.ZERO)
+		citizen["home_visit_timer"] = rng.randf_range(
+			HOME_VISIT_INTERVAL_MIN,
+			HOME_VISIT_INTERVAL_MAX
+		)
+		_choose_next_target(citizen)
+		return
+
+	if path.size() <= 1:
+		_enter_workplace(citizen)
+		return
+
+	citizen["target_grid"] = path[1]
+	citizen["move_progress"] = 0.0
+	citizen["move_duration"] = 1.0
+
+
+func _enter_workplace(citizen):
+	citizen["commuting_to_work"] = false
+	citizen["at_work"] = true
+	citizen["work_timer"] = rng.randf_range(25.0, 45.0)
+	citizen["move_progress"] = 0.0
+	citizen["target_grid"] = citizen["grid_pos"]
+
+
 func _find_path_to_home(citizen):
 	var start = citizen.get("grid_pos", Vector2.ZERO)
 	var goals = _get_home_adjacent_roads(citizen)
@@ -609,6 +758,8 @@ func _begin_return_home(citizen):
 		return false
 
 	citizen["returning_home"] = true
+	citizen["commuting_to_work"] = false
+	citizen["at_work"] = false
 	citizen["move_progress"] = 0.0
 
 	if path.size() <= 1:
@@ -645,6 +796,9 @@ func _continue_return_home(citizen):
 func _enter_home(citizen):
 	citizen["at_home"] = true
 	citizen["returning_home"] = false
+	citizen["commuting_to_work"] = false
+	citizen["at_work"] = false
+	citizen["work_timer"] = 0.0
 	citizen["home_timer"] = rng.randf_range(
 		HOME_STAY_MIN,
 		HOME_STAY_MAX
@@ -739,7 +893,7 @@ func _update_citizen_visual(citizen):
 
 	var visual = visuals[citizen_id]
 
-	if citizen.get("at_home", false):
+	if citizen.get("at_home", false) or citizen.get("at_work", false):
 		visual.visible = false
 		return
 
@@ -853,6 +1007,15 @@ func get_save_data():
 			"returning_home": bool(
 				citizen.get("returning_home", false)
 			),
+			"commuting_to_work": bool(
+				citizen.get("commuting_to_work", false)
+			),
+			"at_work": bool(
+				citizen.get("at_work", false)
+			),
+			"work_timer": float(
+				citizen.get("work_timer", 0.0)
+			),
 			"home_timer": float(
 				citizen.get("home_timer", 0.0)
 			),
@@ -941,6 +1104,16 @@ func load_data(saved_citizens):
 			),
 			"returning_home": bool(
 				saved.get("returning_home", false)
+			),
+			"commuting_to_work": bool(
+				saved.get("commuting_to_work", false)
+			),
+			"at_work": bool(
+				saved.get("at_work", false)
+			),
+			"work_timer": max(
+				0.0,
+				float(saved.get("work_timer", 0.0))
 			),
 			"home_timer": float(
 				saved.get("home_timer", 0.0)
@@ -1059,6 +1232,14 @@ func _sync_jobs():
 				"home_grid",
 				Vector2.ZERO
 			)
+			citizen["commuting_to_work"] = false
+			citizen["at_work"] = false
+			citizen["work_timer"] = 0.0
+			citizen["target_grid"] = citizen.get(
+				"grid_pos",
+				Vector2.ZERO
+			)
+			citizen["move_progress"] = 0.0
 
 	for citizen in citizens:
 		if str(citizen.get("job_id", "")) != "":
