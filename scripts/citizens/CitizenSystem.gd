@@ -1248,23 +1248,44 @@ func _sync_jobs():
 		if str(citizen.get("job_id", "")) != "":
 			continue
 
-		for job in available_jobs:
+		# Banished-style workforce planning: assign each resident to the
+		# closest reachable vacancy, not simply the first building placed.
+		# This reduces daily walking and keeps disconnected workplaces unused.
+		var best_job_index = -1
+		var best_distance = 999999
+		var checked_workplaces = {}
+
+		for job_index in range(available_jobs.size()):
+			var job = available_jobs[job_index]
 			if job["occupied"]:
 				continue
 
-			# Do not employ a resident at a workplace that cannot
-			# be reached from their home through connected roads.
-			if not _has_commute_route(
+			var workplace_key = "%s:%s" % [
+				str(job["building_id"]),
+				str(job["grid"])
+			]
+			if checked_workplaces.has(workplace_key):
+				continue
+			checked_workplaces[workplace_key] = true
+
+			var distance = _get_commute_distance(
 				citizen,
 				str(job["building_id"]),
 				job["grid"]
-			):
+			)
+			if distance < 0:
 				continue
 
-			job["occupied"] = true
-			citizen["job_id"] = job["building_id"]
-			citizen["work_grid"] = job["grid"]
-			break
+			if distance < best_distance:
+				best_distance = distance
+				best_job_index = job_index
+
+		if best_job_index >= 0:
+			var selected_job = available_jobs[best_job_index]
+			selected_job["occupied"] = true
+			available_jobs[best_job_index] = selected_job
+			citizen["job_id"] = selected_job["building_id"]
+			citizen["work_grid"] = selected_job["grid"]
 
 	var employed = 0
 
@@ -1280,6 +1301,22 @@ func _sync_jobs():
 		" | Unemployed: ",
 		citizens.size() - employed
 	)
+
+
+func _get_commute_distance(citizen, workplace_id, workplace_grid):
+	var home_roads = _get_home_adjacent_roads(citizen)
+	var work_roads = _get_building_adjacent_roads(
+		workplace_id,
+		workplace_grid
+	)
+	if home_roads.empty() or work_roads.empty():
+		return -1
+
+	var path = _find_path_between_road_sets(home_roads, work_roads)
+	if path.empty():
+		return -1
+
+	return max(0, path.size() - 1)
 
 
 func get_employment_stats():
