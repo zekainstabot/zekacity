@@ -16,6 +16,21 @@ const PRODUCTS = {
 		"name": "Iron Ore",
 		"buy_price": 25,
 		"sell_price": 35
+	},
+	"wood": {
+		"name": "Wood",
+		"buy_price": 12,
+		"sell_price": 18
+	},
+	"lumber": {
+		"name": "Lumber",
+		"buy_price": 30,
+		"sell_price": 42
+	},
+	"furniture": {
+		"name": "Furniture",
+		"buy_price": 80,
+		"sell_price": 112
 	}
 }
 
@@ -28,7 +43,10 @@ var stock = {
 # سهمیه فروش هر ماده مستقل است.
 var sale_accumulators = {
 	"stone": 0.0,
-	"iron_ore": 0.0
+	"iron_ore": 0.0,
+	"wood": 0.0,
+	"lumber": 0.0,
+	"furniture": 0.0
 }
 
 var supply_elapsed = 0.0
@@ -80,8 +98,8 @@ func process_automatic_sales(delta, world):
 	if market_index == -1:
 		return
 
-	_process_resource_sale("stone", delta, world, market_index)
-	_process_resource_sale("iron_ore", delta, world, market_index)
+	for resource_id in PRODUCTS.keys():
+		_process_resource_sale(resource_id, delta, world, market_index)
 
 
 func _process_resource_sale(resource_id, delta, world, market_index):
@@ -89,7 +107,8 @@ func _process_resource_sale(resource_id, delta, world, market_index):
 		return
 
 	var current_amount = world.resource_manager.get_amount(resource_id)
-	var available = max(0, current_amount - STORAGE_RESERVE)
+	var reserve = STORAGE_RESERVE if resource_id in ["stone", "iron_ore"] else 0
+	var available = max(0, current_amount - reserve)
 
 	# موجودی به حد ذخیره رسیده؛ سهمیه قبلی پاک شود.
 	if available <= 0:
@@ -127,7 +146,7 @@ func _process_resource_sale(resource_id, delta, world, market_index):
 	)
 
 	# اگر موجودی به ذخیره ۵۰ رسید، سهمیه باقی‌مانده حذف شود.
-	if world.resource_manager.get_amount(resource_id) <= STORAGE_RESERVE:
+	if world.resource_manager.get_amount(resource_id) <= reserve:
 		sale_accumulators[resource_id] = 0.0
 
 
