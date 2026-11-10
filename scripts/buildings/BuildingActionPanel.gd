@@ -226,6 +226,9 @@ func _update_business_finance_info(target_world):
 	var building_id = str(building.get("id", ""))
 	var building_grid = building.get("grid", Vector2.ZERO)
 	var worker_count = 0
+	var is_business = building_id in ["grocery_store", "bakery", "restaurant", "office", "mineral_market", "shopping_mall", "factory", "woodcutter", "sawmill", "carpenter"]
+	if not is_business:
+		return
 
 	if target_world.citizen_system != null:
 		for citizen in target_world.citizen_system.citizens:
@@ -271,6 +274,9 @@ func _update_storage_info(target_world):
 	storage_info_label.text = (
 		"Stone: %d\n" % int(amounts.get("stone", 0))
 		+ "Iron ore: %d\n" % int(amounts.get("iron_ore", 0))
+		+ "Wood: %d\n" % int(amounts.get("wood", 0))
+		+ "Lumber: %d\n" % int(amounts.get("lumber", 0))
+		+ "Furniture: %d\n" % int(amounts.get("furniture", 0))
 		+ "Storage: %d / %d\n" % [used_capacity, total_capacity]
 		+ "Free space: %d" % free_capacity
 	)
