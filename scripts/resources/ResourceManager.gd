@@ -23,22 +23,19 @@ func add_resource(resource_id, amount):
 	if not amounts.has(resource_id):
 		return false
 
-	if amount <= 0:
+	var requested_amount = int(amount)
+	if requested_amount <= 0:
 		return false
 
-	var accepted_amount = int(amount)
-
+	# Resource transfers are atomic: never add a partial quantity and
+	# then return false. Callers can safely roll back only when this
+	# function reports success, and storage capacity remains predictable.
 	if storage_system != null:
-		accepted_amount = min(
-			accepted_amount,
-			storage_system.get_free_capacity(self)
-		)
+		if storage_system.get_free_capacity(self) < requested_amount:
+			return false
 
-	if accepted_amount <= 0:
-		return false
-
-	amounts[resource_id] += accepted_amount
-	return accepted_amount == int(amount)
+	amounts[resource_id] += requested_amount
+	return true
 
 
 func remove_resource(resource_id, amount):
