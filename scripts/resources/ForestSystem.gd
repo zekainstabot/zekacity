@@ -80,6 +80,23 @@ func harvest_near(grid_pos, radius = 6):
 	return true
 
 
+func restore_tree_near(grid_pos, radius = 6):
+	var best_grid = Vector2(-1, -1)
+	var best_distance = 999999.0
+	for x in range(max(0, int(grid_pos.x) - radius), min(world.grid_size, int(grid_pos.x) + radius + 1)):
+		for y in range(max(0, int(grid_pos.y) - radius), min(world.grid_size, int(grid_pos.y) + radius + 1)):
+			var tile = Vector2(x, y)
+			var distance = abs(tile.x - grid_pos.x) + abs(tile.y - grid_pos.y)
+			if distance <= radius and distance < best_distance and not _has_tree_at(tile):
+				best_distance = distance
+				best_grid = tile
+	if best_grid.x >= 0:
+		trees.append({"id": trees.size() + 1, "grid": best_grid, "health": 1})
+		update()
+		return true
+	return false
+
+
 func get_save_data():
 	var result = []
 	for tree in trees:
