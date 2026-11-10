@@ -270,8 +270,10 @@ func receive_from_municipal_storage(resource_manager, resource_id, amount, treas
 	var current_stock = get_stock(resource_id)
 	var accepted_quantity = min(
 		quantity,
-		MAX_STOCK_PER_PRODUCT - current_stock,
-		resource_manager.get_amount(resource_id)
+		min(
+			MAX_STOCK_PER_PRODUCT - current_stock,
+			resource_manager.get_amount(resource_id)
+		)
 	)
 
 	if accepted_quantity <= 0:
@@ -289,9 +291,13 @@ func receive_from_municipal_storage(resource_manager, resource_id, amount, treas
 		)
 		accepted_quantity = min(
 			accepted_quantity,
-			quantity,
-			MAX_STOCK_PER_PRODUCT - current_stock,
-			resource_manager.get_amount(resource_id)
+			min(
+				quantity,
+				min(
+					MAX_STOCK_PER_PRODUCT - current_stock,
+					resource_manager.get_amount(resource_id)
+				)
+			)
 		)
 		total_cost = unit_price * accepted_quantity
 
