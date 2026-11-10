@@ -392,6 +392,11 @@ func _find_nearest_connected_road(citizen):
 			if not road_tiles.has(neighbor) or visited.has(neighbor):
 				continue
 
+			# Adjacent road tiles are not necessarily connected at
+			# every edge; respect the road system's connection rules.
+			if not _has_road_connection(current, neighbor):
+				continue
+
 			visited.append(neighbor)
 			queue.append(neighbor)
 
