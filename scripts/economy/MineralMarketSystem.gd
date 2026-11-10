@@ -218,6 +218,33 @@ func sell_to_customer(resource_id, amount, wallet, building):
 	}
 
 
+# Replenish a small batch at a fixed interval so the market does not
+# instantly consume all municipal resources or treasury funds.
+func process_market_supply(delta, world):
+	if world == null or delta <= 0:
+		return
+
+	if world.resource_manager == null or world.city_treasury == null:
+		return
+
+	if _find_mineral_market(world) == -1:
+		return
+
+	supply_elapsed += delta
+	if supply_elapsed < SUPPLY_INTERVAL:
+		return
+
+	supply_elapsed = 0.0
+
+	for resource_id in PRODUCTS.keys():
+		receive_from_municipal_storage(
+			world.resource_manager,
+			resource_id,
+			SUPPLY_BATCH_SIZE,
+			world.city_treasury
+		)
+
+
 # Purchase stock from municipal storage using the market's working
 # capital policy: the municipality pays the configured wholesale price.
 func receive_from_municipal_storage(resource_manager, resource_id, amount, treasury):
