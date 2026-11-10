@@ -228,7 +228,7 @@ func process_wood_industry(world):
 	for building_index in range(world.placed_buildings.size()):
 		var building = world.placed_buildings[building_index]
 		var building_id = str(building.get("id", ""))
-		if building_id not in ["woodcutter", "sawmill", "carpenter"]:
+		if not (building_id in ["woodcutter", "sawmill", "carpenter"]):
 			continue
 
 		if not _building_has_worker(world, building):
