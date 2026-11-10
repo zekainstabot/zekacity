@@ -123,7 +123,7 @@ const BUILDINGS = {
 	},
 	"carpenter": {
 		"name": "Carpentry Workshop",
-		"category": CATEGORY_ADVANCED,
+		"category": CATEGORY_BUSINESS,
 		"stage": 3,
 		"population_required": 35,
 		"cost": 2600
