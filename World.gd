@@ -151,6 +151,7 @@ var land_purchase_controller = preload(
 
 var treasury_label = null
 var population_label = null
+var population_font = null
 var land_purchase_dialog = null
 var pending_land_grid = Vector2(0, 0)
 
@@ -249,7 +250,7 @@ func _ready():
 		Color(1, 1, 1, 1)
 	)
 
-	var population_font = DynamicFont.new()
+	population_font = DynamicFont.new()
 	var font_path = "res://assets/fonts/Roboto-Regular.ttf"
 
 	if ResourceLoader.exists(font_path):
@@ -259,6 +260,12 @@ func _ready():
 	population_label.add_font_override("font", population_font)
 
 	ui.add_child(population_label)
+	get_viewport().connect(
+		"size_changed",
+		self,
+		"_on_hud_viewport_size_changed"
+	)
+	_update_mobile_hud_layout()
 
 	buy_land_button = ui_elements.get("buy_land_button")
 	land_purchase_dialog = ui_elements.get("land_purchase_dialog")
@@ -1298,7 +1305,35 @@ func _update_population_label():
 		population = citizen_system.citizens.size()
 
 	population_label.text = "Population: " + str(population)
-	
+
+
+func _on_hud_viewport_size_changed():
+	_update_mobile_hud_layout()
+
+	if world_ui_controller != null:
+		world_ui_controller.update_treasury_label()
+
+
+func _update_mobile_hud_layout():
+	var viewport_size = get_viewport_rect().size
+
+	if population_label == null:
+		return
+
+	population_label.rect_position = Vector2(130, 56)
+	population_label.rect_min_size = Vector2(0, 34)
+	population_label.rect_size = Vector2(
+		max(150.0, viewport_size.x - 150.0),
+		34
+	)
+
+	if population_font != null:
+		population_font.size = int(clamp(
+			viewport_size.x * 0.032,
+			18.0,
+			28.0
+		))
+
 func _building_has_road_access(building_id, origin):
 	var road_system = get_node_or_null("../RoadSystem")
 
