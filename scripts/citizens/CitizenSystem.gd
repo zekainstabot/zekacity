@@ -1309,19 +1309,22 @@ func _process_citizen_shopping():
 	if market == null:
 		return
 
-	var markets = []
+	# Keep building indexes instead of detached dictionary snapshots.
+	# The updated market record is written back after every purchase.
+	var market_indexes = []
 
-	for building in world.placed_buildings:
+	for building_index in range(world.placed_buildings.size()):
+		var building = world.placed_buildings[building_index]
+
 		if str(building.get("id", "")) == "mineral_market":
-			markets.append(building)
+			market_indexes.append(building_index)
 
-	if markets.empty():
+	if market_indexes.empty():
 		return
 
-	for citizen in citizens:
-		var wallet = int(
-			citizen.get("wallet", 0)
-		)
+	for citizen_index in range(citizens.size()):
+		var citizen = citizens[citizen_index]
+		var wallet = int(citizen.get("wallet", 0))
 
 		if wallet <= 0:
 			continue
@@ -1337,16 +1340,17 @@ func _process_citizen_shopping():
 
 		var price = market.get_sell_price(product_id)
 
-		if wallet < price:
+		if price <= 0 or wallet < price:
 			continue
 
 		if market.get_stock(product_id) <= 0:
 			continue
 
-		var market_building = markets[
-			rng.randi_range(0, markets.size() - 1)
+		var market_index = market_indexes[
+			rng.randi_range(0, market_indexes.size() - 1)
 		]
 
+		var market_building = world.placed_buildings[market_index]
 		var result = market.sell_to_customer(
 			product_id,
 			1,
@@ -1357,9 +1361,11 @@ func _process_citizen_shopping():
 		if not result.get("success", false):
 			continue
 
-		citizen["wallet"] = int(
-			result["remaining_money"]
-		)
+		# Persist the updated business balance and revenue counters.
+		world.placed_buildings[market_index] = market_building
+
+		citizen["wallet"] = int(result["remaining_money"])
+		citizens[citizen_index] = citizen
 
 		print(
 			"CITIZEN PURCHASE | Citizen: ",
