@@ -6,7 +6,10 @@ extends Reference
 
 var amounts = {
 	"stone": 0,
-	"iron_ore": 0
+	"iron_ore": 0,
+	"wood": 0,
+	"lumber": 0,
+	"furniture": 0
 }
 
 var storage_system = null
