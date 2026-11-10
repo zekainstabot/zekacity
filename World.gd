@@ -746,6 +746,16 @@ func _place_building(building_id):
 				update()
 				return false
 
+	var forest_system = get_node_or_null("../ForestSystem")
+	if forest_system != null:
+		for tile in building_footprints.get_occupied_tiles(building_id, grid_pos):
+			if forest_system.is_grid_blocked(tile):
+				print("BUILDING PLACEMENT CANCELLED: FOREST_OCCUPIED at ", tile)
+				selected_building_for_placement = ""
+				road_placement_direction = -1
+				update()
+				return false
+
 	var StorageDefinitions = load(
 		"res://scripts/resources/StorageDefinitions.gd"
 	)
@@ -904,6 +914,11 @@ func _confirm_place_road():
 	var mountain_system = get_node_or_null("../MountainSystem")
 	if mountain_system != null and mountain_system.is_grid_blocked(grid_pos):
 		print("Cannot build a road on a mountain tile: ", grid_pos)
+		return
+
+	var forest_system = get_node_or_null("../ForestSystem")
+	if forest_system != null and forest_system.is_grid_blocked(grid_pos):
+		print("Cannot build a road through a living forest tile: ", grid_pos)
 		return
 
 	if road_system.has_road(grid_pos):
