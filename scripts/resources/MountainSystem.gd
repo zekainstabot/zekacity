@@ -171,9 +171,11 @@ func _can_place_mountain(origin):
 func _get_mountain_draw_data(mountain):
 	# Center the mountain over the full 3x3 isometric footprint.
 	var origin = mountain["origin"]
+	# Match the average tile-center used by building footprints:
+	# a 3x3 footprint is centered at origin + (1, 1), not (1.5, 1.5).
 	var center_grid = origin + Vector2(
-		float(mountain_size) / 2.0,
-		float(mountain_size) / 2.0
+		(float(mountain_size) - 1.0) / 2.0,
+		(float(mountain_size) - 1.0) / 2.0
 	)
 
 	var center = world.grid_to_screen(center_grid, map_center)
