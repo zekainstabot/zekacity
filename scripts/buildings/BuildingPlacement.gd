@@ -68,6 +68,13 @@ func get_placement_error(
 	land_system,
 	road_system
 ):
+	if (
+		footprints == null
+		or land_system == null
+		or str(building_id).strip_edges() == ""
+	):
+		return "INVALID_INPUT"
+
 	if not footprints.fits_inside_map(
 		building_id,
 		origin,
