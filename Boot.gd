@@ -57,7 +57,7 @@ func _draw():
 	for i in range(-2, int(width / building_width) + 3):
 		var x = float(i) * building_width + 12.0
 		var wave = sin(float(i) * 1.7) * 10.0
-		var building_height = 70.0 + float(abs(i * 37) % 90)
+		var building_height = 70.0 + float(int(abs(i * 37)) % 90)
 		var top_y = base_y - building_height + wave
 
 		var front = PoolVector2Array([

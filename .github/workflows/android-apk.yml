@@ -224,6 +224,13 @@ jobs:
 
           cat "$IMPORT_LOG"
 
+          # Godot 3.6 may return exit code 0 even when a project script
+          # fails to parse during import. Never export an APK in that case.
+          if grep -nE 'SCRIPT ERROR:|Parse Error:' "$IMPORT_LOG"; then
+            echo "ERROR: GDScript parse errors were found during import."
+            exit 1
+          fi
+
           if [ "$IMPORT_EXIT" -ne 0 ]; then
             echo "ERROR: Godot import failed. Exit code: $IMPORT_EXIT"
             exit "$IMPORT_EXIT"
